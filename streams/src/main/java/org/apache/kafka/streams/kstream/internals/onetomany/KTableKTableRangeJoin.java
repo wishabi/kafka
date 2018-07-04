@@ -13,37 +13,32 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueIterator;
 
-public class KTableKTableRangeJoin<K, V, KL, VL, VR> implements ProcessorSupplier<KL, Change<VL>> {
+
+public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSupplier<KL, Change<VL>> {
 
 	private ValueJoiner<VL, VR, V> joiner;
-	private KTableRangeValueGetterSupplier<K, VR> right;
-	private ValueMapper<KL, K> faker;
-	private ValueMapper<K, KL> rightKeyExtractor;
-	
-    public KTableKTableRangeJoin(KTableRangeValueGetterSupplier<K, VR> right,
-                                 ValueJoiner<VL, VR, V> joiner,
-                                 ValueMapper<KL, K> faker,
-                                 ValueMapper<K, KL> rightKeyExtractor) {
+	private KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right;
+
+    //Performs Left-driven updates (ie: new One, updates the Many).
+    public KTableKTableRangeJoin(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right,
+                                 ValueJoiner<VL, VR, V> joiner){
+
     	this.right = right;
         this.joiner = joiner;
-        this.faker = faker;
-        this.rightKeyExtractor = rightKeyExtractor;
     }
 
 	@Override
     public Processor<KL, Change<VL>> get() {
-        return new KTableKTableJoinProcessor(right, rightKeyExtractor);
+        return new KTableKTableJoinProcessor(right);
     }
 	
 
     private class KTableKTableJoinProcessor extends AbstractProcessor<KL, Change<VL>> {
 
-		private KTableRangeValueGetter<K, VR> rightValueGetter;
-        private ValueMapper<K, KL> fff;
+		private KTableRangeValueGetter<CombinedKey<KL,KR>,VR> rightValueGetter;
 
-        public KTableKTableJoinProcessor(KTableRangeValueGetterSupplier<K, VR> right, ValueMapper<K, KL> rightKeyExtractor ) {
+        public KTableKTableJoinProcessor(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right) {
             this.rightValueGetter = right.get();
-            this.fff = rightKeyExtractor;
         }
 
         @SuppressWarnings("unchecked")
@@ -62,19 +57,19 @@ public class KTableKTableRangeJoin<K, V, KL, VL, VR> implements ProcessorSupplie
             if (key == null)
                 throw new StreamsException("Record key for KTable join operator should not be null.");
 
-            K prefixKey = faker.apply(key);
+            //Wrap it in a combinedKey and let the serializer handle the prefixing.
+            CombinedKey<KL,KR> prefixKey = new CombinedKey<>(key);
 
-           final KeyValueIterator<K,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
+           final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
             
             while(rightValues.hasNext()){
-                  KeyValue<K, VR> rightKeyValue = rightValues.next();
+                  KeyValue<CombinedKey<KL,KR>, VR> rightKeyValue = rightValues.next();
 
-                  KL realKey = fff.apply(rightKeyValue.key);
+                  KR realKey = rightKeyValue.key.getRightKey();
                   VR value2 = rightKeyValue.value;
                   V newValue = null;
   				  V oldValue = null;
-                  
-                  
+
                   if (leftChange.oldValue != null) {
                 	  oldValue = joiner.apply(leftChange.oldValue, value2);
                   }

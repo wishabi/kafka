@@ -1,7 +1,6 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
 import org.apache.kafka.streams.kstream.ValueJoiner;
-import org.apache.kafka.streams.kstream.ValueMapper;
 import org.apache.kafka.streams.kstream.internals.Change;
 import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetterSupplier;
 import org.apache.kafka.streams.kstream.internals.KTableSourceValueGetterSupplier;
@@ -13,38 +12,32 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class RangeKeyValueGetterProviderAndProcessorSupplier<K0, V0, K, V, VO> implements ProcessorSupplier<K0, VO>
+public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V> implements ProcessorSupplier<CombinedKey<KL,KR>, VR>
 {
 
     private final String topicName;
-    private final ValueMapper<K0, K> leftKeyExtractor;
-    private final ValueMapper<K0, K> rightKeyExtractor;
-    private final KTableValueGetterSupplier<K, V> leftValueGetterSupplier;
-    private final ValueJoiner<V, VO, V0> joiner;
+    private final KTableValueGetterSupplier<KL, VL> leftValueGetterSupplier;
+    private final ValueJoiner<VL, VR, V> joiner;
 
-    public RangeKeyValueGetterProviderAndProcessorSupplier(String topicName,
-                                                           KTableValueGetterSupplier<K, V> leftValueGetter ,
-                                                           ValueMapper<K0, K> leftKeyExtractor,
-                                                           ValueMapper<K0, K> rightKeyExtractor,
-                                                           ValueJoiner<V, VO, V0> joiner)
+    public NonRangeKeyValueGetterProviderAndProcessorSupplier(String topicName,
+                                                              KTableValueGetterSupplier<KL, VL> leftValueGetter ,
+                                                              ValueJoiner<VL, VR, V> joiner)
     {
         this.topicName = topicName;
-        this.leftKeyExtractor = leftKeyExtractor;
-        this.rightKeyExtractor = rightKeyExtractor;
         this.joiner = joiner;
 	    this.leftValueGetterSupplier = leftValueGetter;
     }
 
 
     @Override
-    public Processor<K0, VO> get()
+    public Processor<CombinedKey<KL,KR>, VR> get()
     {
 
-        return new AbstractProcessor<K0, VO>()
+        return new AbstractProcessor<CombinedKey<KL,KR>, VR>()
         {
 
-            KeyValueStore<K0, VO> store;
-            KTableValueGetter<K, V> leftValues;
+            KeyValueStore<CombinedKey<KL,KR>, VR> store;
+            KTableValueGetter<KL, VL> leftValues;
 
             @Override
             public void init(ProcessorContext context)
@@ -52,21 +45,21 @@ public class RangeKeyValueGetterProviderAndProcessorSupplier<K0, V0, K, V, VO> i
                 super.init(context);
                 leftValues = leftValueGetterSupplier.get();
                 leftValues.init(context);
-                store = (KeyValueStore<K0, VO>) context.getStateStore(topicName);
+                store = (KeyValueStore<CombinedKey<KL,KR>, VR>) context.getStateStore(topicName);
             }
 
             @Override
-            public void process(K0 key, VO value)
+            public void process(CombinedKey<KL,KR> key, VR value)
             {
-                VO oldVal = store.get(key);
+                VR oldVal = store.get(key);
                 store.put(key, value);
 
-                V0 newValue = null;
-                V0 oldValue = null;
-                V value2 = null;
+                V newValue = null;
+                V oldValue = null;
+                VL value2 = null;
 
                 if (value != null || oldVal != null) {
-                    K d = leftKeyExtractor.apply(key);
+                    KL d = key.getLeftKey();
                     value2 = leftValues.get(d);
                 }
 
@@ -78,7 +71,7 @@ public class RangeKeyValueGetterProviderAndProcessorSupplier<K0, V0, K, V, VO> i
 
                 //TODO - Bellemare - Am I using the right generic types in this class?
                 if(oldValue != null || newValue != null) {
-                    K realKey = rightKeyExtractor.apply(key);
+                    KR realKey = key.getRightKey();
                     context().forward(realKey, new Change<>(newValue, oldValue));
                 }
             }
@@ -86,7 +79,7 @@ public class RangeKeyValueGetterProviderAndProcessorSupplier<K0, V0, K, V, VO> i
     }
 
 
-    public KTableRangeValueGetterSupplier<K0, VO> valueGetterSupplier() {
-    	return new KTableSourceValueGetterSupplier<K0, VO>(topicName);
+    public KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> valueGetterSupplier() {
+    	return new KTableSourceValueGetterSupplier<>(topicName);
     }
 }

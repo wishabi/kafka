@@ -7,11 +7,11 @@ import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 
-public class KTableRepartitionerProcessorSupplier<K, KR, VR> implements ProcessorSupplier<KR, Change<VR>> {
+public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements ProcessorSupplier<KR, Change<VR>> {
 	
-	private ValueMapper<VR, K> mapper;
+	private ValueMapper<VR, KL> mapper;
 	
-	public KTableRepartitionerProcessorSupplier(ValueMapper<VR,K> extractor) {
+	public KTableRepartitionerProcessorSupplier(ValueMapper<VR,KL> extractor) {
 		this.mapper = extractor;
 	}
 	
@@ -33,10 +33,12 @@ public class KTableRepartitionerProcessorSupplier<K, KR, VR> implements Processo
 			
 			if(change.oldValue != null)
 			{
-				K oldKey = mapper.apply(change.oldValue);
+				KL leftOldKey = mapper.apply(change.oldValue);
+				CombinedKey<KL,KR> combinedOldKey = new CombinedKey<>(leftOldKey, key);
 				if(change.newValue != null)
 				{
-					K newKeyValue = mapper.apply(change.newValue);
+					KL extractedNewLeftKey = mapper.apply(change.newValue);
+					CombinedKey<KL, KR> combinedNewKey = new CombinedKey<>(extractedNewLeftKey, key);
 					// This is a more tricky story 
 					// I only want KR to be key of the new partition.
 
@@ -50,27 +52,31 @@ public class KTableRepartitionerProcessorSupplier<K, KR, VR> implements Processo
 
 					// IF they key equals, the intermediate key will equal which is used
 					// to derive the partition
-					if(oldKey.equals(newKeyValue))
+                    //TODO - How do I know they're equal?
+					if(leftOldKey.equals(extractedNewLeftKey))
 					{
-						context().forward(newKeyValue, change.newValue);
+					    //Same foreign key. Just propagate onwards.
+						context().forward(combinedNewKey, change.newValue);
 					}
 					else  
 					{
-						context().forward(oldKey, null);
-						context().forward(newKeyValue, change.newValue);
+					    //Different Foreign Key - delete the old key value and propagate the new one.
+						context().forward(combinedOldKey, null);
+						context().forward(combinedNewKey, change.newValue);
 					}
 				}
 				else
 				{
-					context().forward(oldKey, null);
+					context().forward(combinedOldKey, null);
 				}
 			}
 			else
 			{
 				if(change.newValue != null)
 				{
-					K newKeyValue = mapper.apply(change.newValue);
-					context().forward(newKeyValue, change.newValue);
+					KL extractedLeftKeyValue = mapper.apply(change.newValue);
+					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue, key);
+					context().forward(newCombinedKeyValue, change.newValue);
 				}
 				else
 				{
@@ -78,9 +84,6 @@ public class KTableRepartitionerProcessorSupplier<K, KR, VR> implements Processo
 				}
 			}
 		}
-
-//		@Override
-//		public void punctuate(long timestamp) {}
 
 		@Override
 		public void close() {}

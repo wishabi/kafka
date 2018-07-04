@@ -61,6 +61,9 @@ public class CombinedKeySerde<KL, KR> implements Serde<CombinedKey<KL, KR>> {
             return deserializer;
         }
 
+        public Serializer<KL> getLeftSerializer() {
+            return this.leftSerializer;
+        }
     //}
 
 

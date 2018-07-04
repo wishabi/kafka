@@ -17,7 +17,6 @@
 package org.apache.kafka.streams.kstream.internals;
 
 import org.apache.kafka.common.serialization.Serde;
-import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.Consumed;
 import org.apache.kafka.streams.KeyValue;
@@ -33,12 +32,12 @@ import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Serialized;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.kstream.ValueMapper;
+import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKey;
+import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeySerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableKTableRangeJoin;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableRepartitionerProcessorSupplier;
 import org.apache.kafka.streams.kstream.internals.onetomany.PartialKeyPartitioner;
-import org.apache.kafka.streams.kstream.internals.onetomany.RangeKeyValueGetterProviderAndProcessorSupplier;
-import org.apache.kafka.streams.kstream.internals.onetomany.SimpleKTableRepartitionerProcessorSupplier;
-import org.apache.kafka.streams.kstream.internals.onetomany.SimpleKeyPartitioner;
+import org.apache.kafka.streams.kstream.internals.onetomany.NonRangeKeyValueGetterProviderAndProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -856,7 +855,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                           ValueMapper<K, K0> joinPrefixFaker,
                                                           ValueMapper<K0, K> leftKeyExtractor,
                                                           ValueMapper<K0, K> rightKeyExtractor,
-                                                          final ValueJoiner<V, VO, V0> joiner,
+                                                          final ValueJoiner<V0, VO, V> joiner,
                                                           final Materialized<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
                                                           Serde<VO> valueOtherSerde,
                                                           Serde<K0> joinKeySerde,
@@ -889,7 +888,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                        ValueMapper<K, K0> joinPrefixFaker,
                                                        ValueMapper<K0, K> leftKeyExtractor,
                                                        ValueMapper<K0, K> rightKeyExtractor,
-                                                       final ValueJoiner<V, VO, V0> joiner,
+                                                       final ValueJoiner<V0, VO, V> joiner,
                                                        final MaterializedInternal<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
                                                        Serde<VO> valueOtherSerde,
                                                        Serde<K0> joinKeySerde,
@@ -928,12 +927,14 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                              ValueMapper<K, K0> joinPrefixFaker,
                                                              ValueMapper<K0, K> leftKeyExtractor,
                                                              ValueMapper<K0, K> rightKeyExtractor,
-                                                             final ValueJoiner<V, VO, V0> joiner,
+                                                             final ValueJoiner<V0, VO, V> joiner,
                                                             final String joinMergeName,
                                                             final String internalQueryableName,
                                                             final MaterializedInternal<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                             Serde<K0> thisKeySerde,
+                                                             Serde<KO> otherKeySerde,
                                                              Serde<VO> valueOtherSerde,
-                                                               Serde<K0> joinKeySerde,
+                                                               //Serde<K0> joinKeySerde,
                                                                Serde<V0> joinValueSerde) {
 
         ((KTableImpl<?, ?, ?>) other).enableSendingOldValues();
@@ -958,15 +959,17 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         topology.addProcessor(repartitionProcessorName, repartitionProcessor, ((AbstractStream<?>) other).name);
 
         //Partitions the data according to the prefix.
-        PartialKeyPartitioner<K0, VO, K> partitioner = new PartialKeyPartitioner<>(leftKeyExtractor, keySerde, repartitionTopicName); //TODO - Bellemare2 - is this the right topic?
+        CombinedKeySerde<K0, KO> combinedKeySerde = new CombinedKeySerde<>(thisKeySerde, otherKeySerde);
+
+        PartialKeyPartitioner<K0, KO, VO> partitioner = new PartialKeyPartitioner<>(combinedKeySerde, repartitionTopicName); //TODO - Bellemare2 - is this the right topic?
 
         topology.addSink(repartitionSinkName, repartitionTopicName,
-                joinKeySerde.serializer(), valueOtherSerde.serializer(),
+                combinedKeySerde.serializer(), valueOtherSerde.serializer(),
                 partitioner, repartitionProcessorName);
 
         // Re read partitioned topic and copartition with left
         //TODO - Are the nulls below okay?
-        topology.addSource(null, repartitionSourceName, null, joinKeySerde.deserializer(), valueOtherSerde.deserializer(), repartitionTopicName);
+        topology.addSource(null, repartitionSourceName, null, combinedKeySerde.deserializer(), valueOtherSerde.deserializer(), repartitionTopicName);
         String joinByRangeName = builder.newProcessorName(BY_RANGE);
 
         //Pretty sure this does two things:
@@ -975,25 +978,28 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //    then uses the partial key to get the left value from this store.
         //    Applies the join logic.
         //    Returns the data keyed on the RightKey, which is the original key.
-        //TODO - Do I need to repartition the rekeyed data now? A: YES
-        final RangeKeyValueGetterProviderAndProcessorSupplier<K0, V0, K, V, VO> joinThis =
-                new RangeKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), leftKeyExtractor, rightKeyExtractor, joiner);
+
+        final NonRangeKeyValueGetterProviderAndProcessorSupplier<K0, KO, V0, VO, V> joinThis =
+                new NonRangeKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), joiner);
         topology.addProcessor(joinThisName, joinThis, repartitionSourceName);
 
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
 
-        Materialized mat = Materialized.<K0, VO>as(rdbs)
+        Materialized mat = Materialized.<KO, VO>as(rdbs)
                 .withCachingDisabled() //TODO - Bellemare - Doesn't support prefix scanning...
                 .withLoggingDisabled() //TODO - Bellemare - Doesn't support prefix scanning...
-                .withKeySerde(joinKeySerde)
-                .withValueSerde(valueOtherSerde);
+                .withKeySerde(otherKeySerde) //Should be keyed on KO/KR
+                .withValueSerde(valueOtherSerde); //
 
-        MaterializedInternal<K0, VO, KeyValueStore<Bytes, byte[]>> materializedInternal = new MaterializedInternal(mat, builder, "SOMEFOO");
-        topology.addStateStore(new KeyValueStoreMaterializer<K0, VO>(materializedInternal).materialize(), joinThisName);
+        MaterializedInternal<KO, VO, KeyValueStore<Bytes, byte[]>> materializedInternal = new MaterializedInternal<KO, VO, KeyValueStore<Bytes, byte[]>>(mat, builder, "SOMEFOO");
+        topology.addStateStore(new KeyValueStoreMaterializer<>(materializedInternal).materialize(), joinThisName);
 
         //Performs Left-driven updates (ie: new One, updates the Many).
         //Produces with the Real Key.
-        KTableKTableRangeJoin<K0, V0, K, V, VO> joinByRange = new KTableKTableRangeJoin<K0, V0, K, V, VO>(joinThis.valueGetterSupplier(), joiner, joinPrefixFaker, rightKeyExtractor);
+        KTableRangeValueGetterSupplier<CombinedKey<K0,KO>,VO> f = joinThis.valueGetterSupplier();
+
+        KTableKTableRangeJoin<K0, KO, V0, VO, V> joinByRange
+                = new KTableKTableRangeJoin<>(f, joiner);
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
 
 
@@ -1061,105 +1067,4 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
             new ConsumedInternal<>(joinKeySerde, joinValueSerde, new FailOnInvalidTimestamp(), null),
             materialized);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-////        //TODO : Repartition
-//        //0) Create names and repatition topic
-//        String outputRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
-//        final String outputRepartitionSinkName = outputRepartitionerName + "-sink";
-//        final String outputRepartitionSinkTopicName = outputRepartitionerName + "-sink-topic";
-//        topology.addInternalTopic(outputRepartitionSinkTopicName);
-//
-////        //TODO is this the right key/value/value?
-////        //1) Sink it. Using the DSL to handle the Change<> events.
-////        new KTableImpl<K0, V0, V0>(builder,
-////                joinMergeName,
-////                joinMerge,
-////                allSourceNodes,
-////                null,
-////                false)
-////                .toStream()
-////                .to(outputRepartitionSinkName, Produced.with(joinKeySerde, joinValueSerde));
-////  Caused by: org.apache.kafka.streams.errors.StreamsException:
-//// A serializer (key: org.apache.kafka.common.serialization.StringSerializer /
-////  value: org.apache.kafka.common.serialization.ByteArraySerializer) is not compatible to the actual key or value type (key type: java.lang.String / value type: com.flipp.eventification.wrapper.JoinedFlyerTypeAndMerchant). Change the default Serdes in StreamConfig or provide correct Serdes via method parameters.
-////	at org.apache.kafka.streams.processor.internals.SinkNode.process(SinkNode.java:92)
-//        String myFancyStateStore = "myFancyName";
-//        KTableImpl foo = new KTableImpl<K0, V0, V0>(builder,
-//                myFancyStateStore,
-//                joinMerge,
-//                allSourceNodes,
-//                null,
-//                false);
-//        //This powers the above table
-//        topology.addProcessor(myFancyStateStore, foo.processorSupplier, joinMergeName);
-//
-//
-//        //topology.connectProcessorAndStateStores(myFancyStateStore, foo.valueGetterSupplier().storeNames());
-//
-//        //Processor myFancyName has no access to StateStore anotherUselessStoreName
-//
-//        // repartition original => intermediate topic
-//        SimpleKTableRepartitionerProcessorSupplier<K, KO, VO> simpleRepartitionProcessor =
-//                new SimpleKTableRepartitionerProcessorSupplier<>();
-//
-//
-//        SimpleKeyPartitioner<K0, V0> simpleKeyPartitioner = new SimpleKeyPartitioner<>(joinKeySerde, outputRepartitionSinkTopicName);
-//        String simpleKeyPartitionerProcessor = "simpleKeyPartitionerProcessor";
-//        topology.addProcessor(simpleKeyPartitionerProcessor, simpleRepartitionProcessor, myFancyStateStore);
-//
-//        topology.addSink(outputRepartitionSinkName,
-//                outputRepartitionSinkTopicName,
-//                joinKeySerde.serializer(),
-//                joinValueSerde.serializer(),
-//                simpleKeyPartitioner,
-//                simpleKeyPartitionerProcessor);
-//
-//
-//        //TODO - Find where to relocate this above.
-//        if (materialized != null) {
-//            final StoreBuilder<KeyValueStore<K0, V0>> storeBuilder
-//                    = new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize();
-//            builder.internalTopologyBuilder.addStateStore(storeBuilder, joinMergeName);
-//        }
-//        topology.connectProcessorAndStateStores(myFancyStateStore, foo.valueGetterSupplier().storeNames());
-//
-//        //2) Create a KTable to read it back.
-//        return
-//                builder.table(outputRepartitionSinkTopicName,
-//                    new ConsumedInternal<>(joinKeySerde, joinValueSerde, new FailOnInvalidTimestamp(), null),
-//                    materialized);
-//    }
-
-
-//        return new KTableImpl<>(builder,
-//                joinMergeName,
-//                joinMerge,
-//                allSourceNodes,
-//                myUselessMaterializedStore.storeName(),
-//                myUselessMaterializedStore.storeName() != null);
-//    }
-//
-//    return new KTableImpl<>(builder,
-//        joinMergeName,
-//        joinMerge,
-//        allSourceNodes,
-//        internalQueryableName,
-//        internalQueryableName != null);
-//    }
 }

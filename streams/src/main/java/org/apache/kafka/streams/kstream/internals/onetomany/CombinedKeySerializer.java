@@ -4,7 +4,6 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -31,14 +30,16 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
         // Awkward placement due to prefix scanning requirements
         byte[] leftSerializedData = leftSerializer.serialize("dummyTopic", data.getLeftKey());
         byte[] leftSize = numToBytes(leftSerializedData.length);
-        byte[] rightSerializedData = rightSerializer.serialize("dummyTopic", data.getRightKey());
-        byte[] rightSize = numToBytes(rightSerializedData.length);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try {
             output.write(leftSerializedData);
-            output.write(rightSize);
-            output.write(rightSerializedData);
+            if (data.getRightKey() != null) {
+                byte[] rightSerializedData = rightSerializer.serialize("dummyTopic", data.getRightKey());
+                byte[] rightSize = numToBytes(rightSerializedData.length);
+                output.write(rightSize);
+                output.write(rightSerializedData);
+            }
             output.write(leftSize);
         } catch (IOException e){
             //TODO - Handle the IO exception;
