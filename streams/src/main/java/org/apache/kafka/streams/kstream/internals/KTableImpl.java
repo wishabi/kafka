@@ -1038,7 +1038,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         asdf
             .toStream()
-            .to(outputRepartitionSinkTopicName, Produced.with(thisKeySerde, thisValueSerde));
+            .to(outputRepartitionSinkTopicName, Produced.with(thisKeySerde, joinedValueSerde));
 
         LinkedList<String> sourcesNeedCopartitioning = new LinkedList<>();
         sourcesNeedCopartitioning.add(repartitionSourceName);
