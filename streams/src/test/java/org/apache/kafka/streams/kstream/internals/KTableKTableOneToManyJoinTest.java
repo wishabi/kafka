@@ -170,13 +170,23 @@ public class KTableKTableOneToManyJoinTest {
 
         //Remaps the left key to the correct partitions, to be on the same node as the right keys.
         //Step 1: Repartition left key data. Get the foreign key out of the value!
+//        ValueMapper<String, String> keyExtractor = new ValueMapper<String, String>() {
+//            @Override
+//            public String apply(String value) {
+//                //Assuming format of: "foreignKey,primaryKey,metadata"
+//                String[] ss = value.split(",");
+//                System.out.println("Extracted data: " + ss);
+//                return ss[0] + "-" + ss[1];
+//            }
+//        };
+
         ValueMapper<String, String> keyExtractor = new ValueMapper<String, String>() {
             @Override
             public String apply(String value) {
                 //Assuming format of: "foreignKey,primaryKey,metadata"
                 String[] ss = value.split(",");
                 System.out.println("Extracted data: " + ss);
-                return ss[0] + "-" + ss[1];
+                return ss[0];
             }
         };
 

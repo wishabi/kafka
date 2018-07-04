@@ -19,6 +19,7 @@ public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V
     private final KTableValueGetterSupplier<KL, VL> leftValueGetterSupplier;
     private final ValueJoiner<VL, VR, V> joiner;
 
+    //Right driven updates
     public NonRangeKeyValueGetterProviderAndProcessorSupplier(String topicName,
                                                               KTableValueGetterSupplier<KL, VL> leftValueGetter ,
                                                               ValueJoiner<VL, VR, V> joiner)

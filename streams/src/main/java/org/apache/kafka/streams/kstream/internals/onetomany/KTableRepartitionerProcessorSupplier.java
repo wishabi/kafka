@@ -75,7 +75,7 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 				if(change.newValue != null)
 				{
 					KL extractedLeftKeyValue = mapper.apply(change.newValue);
-					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue);
+					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue, key);
 					context().forward(newCombinedKeyValue, change.newValue);
 				}
 				else
