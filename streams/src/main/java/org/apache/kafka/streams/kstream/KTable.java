@@ -2287,19 +2287,22 @@ public interface KTable<K, V> {
      *
      * @param other the table containing n records for each K of this table
      * @param keyExtractor a {@code ValueMapper} returning the key of this table from the others value
-     * @param <K0> the resultings tables Key
-     * @param <V0> the resultings tables Value
+     * @param <KR> the right, and the resulting, table Key
+     * @param <V0> the resulting tables Value
      * @param joiner
      * @return
      */
-    <K0, V0, KO, VO> KTable<K0, V0> oneToManyJoin(KTable<KO, VO> other,
-                                                  ValueMapper<VO, K0> keyExtractor,
-                                                  final ValueJoiner<V0, VO, V> joiner,
-                                                  final Materialized<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
-                                                  Serde<K0> thisKeySerde,
-                                                  Serde<V0> thisValueSerde,
-                                                  Serde<KO> otherKeySerde,
-                                                  Serde<VO> otherValueSerde);
+
+
+    <V0, KL, VL, KR, VR> KTable<KR, V0> oneToManyJoin(KTable<KR, VR> other,
+                                                        ValueMapper<VR, KL> keyExtractor,
+                                                        final ValueJoiner<VL, VR, V0> joiner,
+                                                        final Materialized<KR, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                        Serde<KL> thisKeySerde,
+                                                        Serde<VL> thisValueSerde,
+                                                        Serde<KR> otherKeySerde,
+                                                        Serde<VR> otherValueSerde,
+                                                        Serde<V0> joinedValueSerde);
 
     /**
      * Get the name of the local state store used that can be used to query this {@code KTable}.

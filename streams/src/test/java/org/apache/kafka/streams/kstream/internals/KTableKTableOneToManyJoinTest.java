@@ -258,7 +258,7 @@ public class KTableKTableOneToManyJoinTest {
                 .withValueSerde(Serdes.String());
 
         joined = table1
-                .oneToManyJoin(table2, keyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
+                .oneToManyJoin(table2, keyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
 
 //        joined = table1
 //                .oneToManyJoin(table2, keyExtractor, joinPrefixFaker, leftKeyExtractor, rightKeyExtractor, joiner, Serdes.String(), Serdes.String());
