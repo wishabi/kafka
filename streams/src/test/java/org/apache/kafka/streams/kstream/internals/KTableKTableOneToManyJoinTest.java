@@ -28,6 +28,8 @@ import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.kstream.ValueMapper;
+import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKey;
+import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeySerde;
 import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.test.KStreamTestDriver;
@@ -37,7 +39,14 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Set;
 
@@ -214,6 +223,39 @@ public class KTableKTableOneToManyJoinTest {
             }
         };
 
+
+        CombinedKey<String, Double> foo = new CombinedKey<>("eat pant. eat all the pant. only eat pant.", 24.23423161346);
+
+        CombinedKeySerde<String, Double> ff = new CombinedKeySerde<>(Serdes.String().serializer(), Serdes.String().deserializer(),
+                Serdes.Double().serializer(), Serdes.Double().deserializer());
+
+        byte[] ss = ff.serializer().serialize("dummyTopic", foo);
+        CombinedKey<String, Double> gg = ff.deserializer().deserialize("dummyTopic", ss);
+
+        System.out.println("gg equals:");
+        System.out.println(gg.getLeftKey());
+        System.out.println(gg.getRightKey());
+        System.out.println("foo equals:");
+        System.out.println(foo.getLeftKey());
+        System.out.println(foo.getRightKey());
+
+        if (gg.equals(foo)) {
+            System.out.println("We have success!");
+        }
+
+
+//        try{
+//            byte[] results = pickle(foo);
+//            unpickle(results, foo.getClass());
+//
+//        } catch (IOException e) {
+//
+//        } catch (ClassNotFoundException ff) {
+//
+//        }
+
+
+
         Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat =
                 Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore")
                 .withCachingDisabled()
@@ -250,5 +292,23 @@ public class KTableKTableOneToManyJoinTest {
             }
         }
     }
-
+//
+//    private <T extends Serializable> byte[] pickle(T obj)
+//            throws IOException
+//    {
+//        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//        ObjectOutputStream oos = new ObjectOutputStream(baos);
+//        oos.writeObject(obj);
+//        oos.close();
+//        return baos.toByteArray();
+//    }
+//
+//    private <T extends Serializable> T unpickle(byte[] b, Class<T> cl)
+//            throws IOException, ClassNotFoundException
+//    {
+//        ByteArrayInputStream bais = new ByteArrayInputStream(b);
+//        ObjectInputStream ois = new ObjectInputStream(bais);
+//        Object o = ois.readObject();
+//        return cl.cast(o);
+//    }
 }

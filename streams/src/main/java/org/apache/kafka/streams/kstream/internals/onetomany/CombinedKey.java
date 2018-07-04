@@ -1,14 +1,19 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
 
-import java.io.Serializable;
+import org.apache.kafka.common.serialization.Serde;
 
-//TODO - How to serialize and deserialize this? I believe it will be in the materialized statestore, and we will need it to scan.
-//TODO - Also, how does this fit in with the processors?
-//TODO - Figure out where all of the combinedKeys are used, and then plan integration of this component accordingly.
-public class CombinedKey<KL, KR> implements Serializable {
-    private final KL leftKey;
-    private final KR rightKey;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.ByteBuffer;
+
+public class CombinedKey<KL, KR> {
+    private KL leftKey;
+    private KR rightKey;
+
 
     public CombinedKey(final KL leftKey, final KR rightKey) {
         this.leftKey = leftKey;
@@ -21,5 +26,9 @@ public class CombinedKey<KL, KR> implements Serializable {
 
     public KR getRightKey() {
         return this.rightKey;
+    }
+
+    public boolean equals(KL leftKey, KR rightKey) {
+        return this.leftKey == leftKey && this.rightKey == rightKey;
     }
 }
