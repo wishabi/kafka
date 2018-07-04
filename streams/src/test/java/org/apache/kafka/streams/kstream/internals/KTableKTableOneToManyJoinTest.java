@@ -223,11 +223,9 @@ public class KTableKTableOneToManyJoinTest {
             }
         };
 
-
         CombinedKey<String, Double> foo = new CombinedKey<>("eat pant. eat all the pant. only eat pant.", 24.23423161346);
 
-        CombinedKeySerde<String, Double> ff = new CombinedKeySerde<>(Serdes.String().serializer(), Serdes.String().deserializer(),
-                Serdes.Double().serializer(), Serdes.Double().deserializer());
+        CombinedKeySerde<String, Double> ff = new CombinedKeySerde<>(Serdes.String(), Serdes.Double());
 
         byte[] ss = ff.serializer().serialize("dummyTopic", foo);
         CombinedKey<String, Double> gg = ff.deserializer().deserialize("dummyTopic", ss);
@@ -239,20 +237,6 @@ public class KTableKTableOneToManyJoinTest {
         System.out.println(foo.getLeftKey());
         System.out.println(foo.getRightKey());
 
-        if (gg.equals(foo)) {
-            System.out.println("We have success!");
-        }
-
-
-//        try{
-//            byte[] results = pickle(foo);
-//            unpickle(results, foo.getClass());
-//
-//        } catch (IOException e) {
-//
-//        } catch (ClassNotFoundException ff) {
-//
-//        }
 
 
 
@@ -292,23 +276,4 @@ public class KTableKTableOneToManyJoinTest {
             }
         }
     }
-//
-//    private <T extends Serializable> byte[] pickle(T obj)
-//            throws IOException
-//    {
-//        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//        ObjectOutputStream oos = new ObjectOutputStream(baos);
-//        oos.writeObject(obj);
-//        oos.close();
-//        return baos.toByteArray();
-//    }
-//
-//    private <T extends Serializable> T unpickle(byte[] b, Class<T> cl)
-//            throws IOException, ClassNotFoundException
-//    {
-//        ByteArrayInputStream bais = new ByteArrayInputStream(b);
-//        ObjectInputStream ois = new ObjectInputStream(bais);
-//        Object o = ois.readObject();
-//        return cl.cast(o);
-//    }
 }

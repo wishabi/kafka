@@ -27,8 +27,4 @@ public class CombinedKey<KL, KR> {
     public KR getRightKey() {
         return this.rightKey;
     }
-
-    public boolean equals(KL leftKey, KR rightKey) {
-        return this.leftKey == leftKey && this.rightKey == rightKey;
-    }
 }

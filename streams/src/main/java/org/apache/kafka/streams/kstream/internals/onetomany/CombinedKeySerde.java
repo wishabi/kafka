@@ -26,12 +26,11 @@ public class CombinedKeySerde<KL, KR> implements Serde<CombinedKey<KL, KR>> {
 
     //    public WrapperSerde(Serializer<KL> leftSerializer, Deserializer<KL> leftDeserializer,
 //                        Serializer<KR> rightSerializer, Deserializer<KR> rightDeserializer) {
-        public CombinedKeySerde(Serializer<KL> leftSerializer, Deserializer<KL> leftDeserializer,
-                            Serializer<KR> rightSerializer, Deserializer<KR> rightDeserializer) {
-            this.rightDeserializer = rightDeserializer;
-            this.rightSerializer = rightSerializer;
-            this.leftDeserializer = leftDeserializer;
-            this.leftSerializer = leftSerializer;
+        public CombinedKeySerde(Serde<KL> leftSerde, Serde<KR> rightSerde) {
+            this.rightSerializer = rightSerde.serializer();
+            this.rightDeserializer = rightSerde.deserializer();
+            this.leftDeserializer = leftSerde.deserializer();
+            this.leftSerializer = leftSerde.serializer();
             this.serializer = new CombinedKeySerializer<>(leftSerializer, rightSerializer);
             this.deserializer = new CombinedKeyDeserializer<>(leftDeserializer, rightDeserializer);
         }
