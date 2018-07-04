@@ -27,7 +27,8 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
     @Override
     public byte[] serialize(String topic, CombinedKey<KL, KR> data) {
-        //{4-byte length}{leftKeySerialized}{4-byte right length}{rightKeySerialized}
+        //{leftKeySerialized}{4-byte right length}{rightKeySerialized}{4-byte left length}
+        // Awkward placement due to prefix scanning requirements
         byte[] leftSerializedData = leftSerializer.serialize("dummyTopic", data.getLeftKey());
         byte[] leftSize = numToBytes(leftSerializedData.length);
         byte[] rightSerializedData = rightSerializer.serialize("dummyTopic", data.getRightKey());
@@ -35,10 +36,10 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try {
-            output.write(leftSize);
             output.write(leftSerializedData);
             output.write(rightSize);
             output.write(rightSerializedData);
+            output.write(leftSize);
         } catch (IOException e){
             //TODO - Handle the IO exception;
             System.out.println("ERROR SHOULD NOT BE HERE IN IOEXCEPTION");
