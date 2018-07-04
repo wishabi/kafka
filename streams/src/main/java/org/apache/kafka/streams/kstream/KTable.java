@@ -2287,24 +2287,19 @@ public interface KTable<K, V> {
      *
      * @param other the table containing n records for each K of this table
      * @param keyExtractor a {@code ValueMapper} returning the key of this table from the others value
-     * @param joinPrefixFaker a {@code ValueMapper} returning an outputkey that when serialized only produces the
-     * 							prefix of the output key wich is the same as serializing K
-     * @param leftKeyExtractor a {@code ValueMapper} extracting the Key of this table from the resulting Key
      * @param <K0> the resultings tables Key
      * @param <V0> the resultings tables Value
      * @param joiner
      * @return
      */
     <K0, V0, KO, VO> KTable<K0, V0> oneToManyJoin(KTable<KO, VO> other,
-                                                  ValueMapper<VO, K> keyExtractor,
-                                                  ValueMapper<K, K0> joinPrefixFaker,
-                                                  ValueMapper<K0, K> leftKeyExtractor,
-                                                  ValueMapper<K0, K> rightKeyExtractor,
-                                                  ValueJoiner<V0, VO, V> joiner,
-                                                  Materialized<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
-                                                  Serde<VO> valueOtherSerde,
-                                                  Serde<K0> joinKeySerde,
-                                                  Serde<V0> joinValueSerde);
+                                                  ValueMapper<VO, K0> keyExtractor,
+                                                  final ValueJoiner<V0, VO, V> joiner,
+                                                  final Materialized<K0, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                  Serde<K0> thisKeySerde,
+                                                  Serde<V0> thisValueSerde,
+                                                  Serde<KO> otherKeySerde,
+                                                  Serde<VO> otherValueSerde);
 
     /**
      * Get the name of the local state store used that can be used to query this {@code KTable}.

@@ -8,9 +8,9 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 
 public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements ProcessorSupplier<KR, Change<VR>> {
-	
+
 	private ValueMapper<VR, KL> mapper;
-	
+
 	public KTableRepartitionerProcessorSupplier(ValueMapper<VR,KL> extractor) {
 		this.mapper = extractor;
 	}
@@ -75,7 +75,7 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 				if(change.newValue != null)
 				{
 					KL extractedLeftKeyValue = mapper.apply(change.newValue);
-					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue, key);
+					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue);
 					context().forward(newCombinedKeyValue, change.newValue);
 				}
 				else
