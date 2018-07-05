@@ -990,11 +990,9 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         KTableImpl<KR, V, V0> myThat = new KTableImpl<>(builder, joinByRangeName, joinByRange, ((KTableImpl<K, ?, ?>) other).sourceNodes,
                 ((KTableImpl<K, ?, ?>) other).queryableStoreName, false);
 
-        Materialized myMat = Materialized.<KR, V0, KeyValueStore<Bytes, byte[]>>as("anotherUselessStoreName")
+        Materialized myMat = Materialized.<KR, V0, KeyValueStore<Bytes, byte[]>>with(otherKeySerde, joinedValueSerde)
                 .withCachingDisabled()
-                .withLoggingDisabled()
-                .withKeySerde(otherKeySerde)
-                .withValueSerde(joinedValueSerde);
+                .withLoggingDisabled();
 
         MaterializedInternal<KR, V0, KeyValueStore<Bytes, byte[]>> myUselessMaterializedStore = new MaterializedInternal(myMat, builder, "SOME_HANDLE_NAME");
 
@@ -1021,7 +1019,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                     = new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize();
             builder.internalTopologyBuilder.addStateStore(storeBuilder, joinMergeName);
 
-        String asdfTableName = "asdfTableName";
+        String asdfTableName = builder.newProcessorName(SOURCE_NAME);
         KTable asdf = new KTableImpl<>(builder,
                 asdfTableName,
                 joinMerge,
@@ -1032,8 +1030,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         topology.addProcessor(asdfTableName, joinMerge, joinMergeName);
         topology.connectProcessorAndStateStores(asdfTableName, myUselessMaterializedStore.storeName());
 
-        String outputRepartitionSinkName = "outputRepartitionSinkName";
-        String outputRepartitionSinkTopicName = "outputRepartitionSinkName-Topic";
+        String outputRepartitionSinkName = builder.newProcessorName(REPARTITION_NAME);
+        String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-Topic";
         topology.addInternalTopic(outputRepartitionSinkTopicName);
 
         asdf
