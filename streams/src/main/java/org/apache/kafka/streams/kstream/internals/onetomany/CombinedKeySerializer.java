@@ -2,6 +2,7 @@ package org.apache.kafka.streams.kstream.internals.onetomany;
 
 import org.apache.kafka.common.serialization.Serializer;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -26,13 +27,12 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
     @Override
     public byte[] serialize(String topic, CombinedKey<KL, KR> data) {
-        //{leftKeySerialized}{4-byte right length}{rightKeySerialized}{4-byte left length}
-        // Awkward placement due to prefix scanning requirements
         byte[] leftSerializedData = leftSerializer.serialize("dummyTopic", data.getLeftKey());
         byte[] leftSize = numToBytes(leftSerializedData.length);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try {
+            output.write(leftSize);
             output.write(leftSerializedData);
             if (data.getRightKey() != null) {
                 byte[] rightSerializedData = rightSerializer.serialize("dummyTopic", data.getRightKey());
@@ -40,11 +40,20 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
                 output.write(rightSize);
                 output.write(rightSerializedData);
             }
-            output.write(leftSize);
         } catch (IOException e){
             //TODO - Handle the IO exception;
             System.out.println("ERROR SHOULD NOT BE HERE IN IOEXCEPTION");
         }
+
+        String foo;
+        if (null == data.getRightKey())
+            foo = "null";
+        else
+            foo = data.getRightKey().toString();
+
+
+        System.out.println("CombinedKeySerdeBytes for (KL,KR) = (" + data.getLeftKey().toString() + "," + foo
+                + "). Bytes = " + DatatypeConverter.printHexBinary(output.toByteArray()));
 
         return output.toByteArray();
     }

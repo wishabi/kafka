@@ -219,7 +219,7 @@ public class KTableKTableOneToManyJoinTest {
         ValueMapper<String, String> tableOneKeyExtractor = new ValueMapper<String, String>() {
             @Override
             public String apply(String value) {
-                //Assuming format of: "foreignKey,primaryKey,metadata"
+                //Assuming format of: "foreignKey,metadata"
                 String[] ss = value.split(",");
                 System.out.println("Extracted data: " + ss);
                 return ss[0];
@@ -330,7 +330,7 @@ public class KTableKTableOneToManyJoinTest {
         supplier.checkAndClearProcessResult("5:value1=1,XYZ,value2=1,5,YYYY", "6:value1=1,XYZ,value2=1,6,YYYY", "7:value1=1,XYZ,value2=1,7,YYYY");
         checkJoinedValues(getter, kv("5", "value1=1,XYZ,value2=1,5,YYYY"), kv("6", "value1=1,XYZ,value2=1,6,YYYY"), kv("7","value1=1,XYZ,value2=1,7,YYYY"));
 
-        for (int i = 2; i < 4; i++) {
+        for (int i = 12; i < 13; i++) {
             driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
             System.out.println("Table3-row = (" + String.valueOf(i) + ", 6,"+i+",ZZZZ)" );
         }
@@ -338,7 +338,7 @@ public class KTableKTableOneToManyJoinTest {
         //driver.process(topic2, null, "AnotherVal");
         driver.flushState();
 
-        supplier2.checkAndClearProcessResult("2:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,2,ZZZZ", "3:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,3,ZZZZ");
+        supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
     }
 
 

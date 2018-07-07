@@ -1,5 +1,6 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.kstream.internals.Change;
 import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetterSupplier;
@@ -52,6 +53,7 @@ public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V
             @Override
             public void process(CombinedKey<KL,KR> key, VR value)
             {
+                System.out.println("NonRangeKeyValueProcessor Combined = (" + key.getLeftKey().toString() + "," + key.getRightKey().toString()+")" + ", Value = " + value);
                 VR oldVal = store.get(key);
                 store.put(key, value);
 

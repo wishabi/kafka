@@ -29,12 +29,12 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
     public CombinedKey<KL, KR> deserialize(String topic, byte[] data) {
         //{leftKeySerialized}{4-byte right length}{rightKeySerialized}{4-byte left length}
 
-        byte[] leftCount = Arrays.copyOfRange(data,data.length-4,data.length);
+        byte[] leftCount = Arrays.copyOfRange(data,0,4);
         int leftKeyLength = fourBytesToInt(leftCount);
-        System.out.println("leftKeyLength = " + leftKeyLength);
+        //System.out.println("leftKeyLength = " + leftKeyLength);
 
-        byte[] leftKeyRaw = Arrays.copyOfRange(data,0,leftKeyLength);
-        System.out.println("leftKeyRaw = " + new String(leftKeyRaw));
+        byte[] leftKeyRaw = Arrays.copyOfRange(data,4,4+leftKeyLength);
+        //System.out.println("leftKeyRaw = " + new String(leftKeyRaw));
 
         KL leftKey = leftDeserializer.deserialize(topic, leftKeyRaw);
 
@@ -42,12 +42,12 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
             return new CombinedKey<>(leftKey);
         } else {
 
-            byte[] rightCount = Arrays.copyOfRange(data, leftKeyLength, leftKeyLength + 4);
+            byte[] rightCount = Arrays.copyOfRange(data, 4+leftKeyLength, 4+leftKeyLength + 4);
             int rightKeyLength = fourBytesToInt(rightCount);
-            System.out.println("rightKeyLength = " + rightKeyLength);
+//            System.out.println("rightKeyLength = " + rightKeyLength);
 
-            byte[] rightKeyRaw = Arrays.copyOfRange(data, leftKeyLength + 4, leftKeyLength + 4 + rightKeyLength);
-            System.out.println("rightKeyRaw = " + new String(rightKeyRaw));
+            byte[] rightKeyRaw = Arrays.copyOfRange(data, 4+leftKeyLength + 4, 4+leftKeyLength + 4 + rightKeyLength);
+//            System.out.println("rightKeyRaw = " + new String(rightKeyRaw));
             KR rightKey = rightDeserializer.deserialize(topic, rightKeyRaw);
             return new CombinedKey<>(leftKey, rightKey);
         }

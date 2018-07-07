@@ -45,6 +45,7 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -600,6 +601,7 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
                                      StateSerdes<K, V> serdes, K prefix) {
             super(name, newIterator, serdes);
             this.rawPrefix = serdes.rawKey(prefix);
+            System.out.println("RocksDB. Prefix=" + prefix.toString()+", PrefixRawKey="+ DatatypeConverter.printHexBinary(rawPrefix));
             newIterator.seek(rawPrefix);
         }
 
