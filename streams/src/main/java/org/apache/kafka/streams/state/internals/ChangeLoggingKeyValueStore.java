@@ -123,6 +123,6 @@ class ChangeLoggingKeyValueStore<K, V> extends WrappedStateStore.AbstractStateSt
 
     @Override
     public KeyValueIterator<K, V> prefixScan(K prefix) {
-        throw new UnsupportedOperationException(getClass().getSimpleName() + " can't perform a prefix scan");
+        return new SerializedKeyValueIterator<>(this.innerBytes.prefixScan(Bytes.wrap(serdes.rawKey(prefix))), serdes);
     }
 }

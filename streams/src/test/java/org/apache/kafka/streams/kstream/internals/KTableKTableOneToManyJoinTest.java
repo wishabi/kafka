@@ -256,8 +256,8 @@ public class KTableKTableOneToManyJoinTest {
 
         Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat2 =
                 Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore2")
-                        .withCachingDisabled()
-                        .withLoggingDisabled()
+//                        .withCachingDisabled()
+//                        .withLoggingDisabled()
                         .withKeySerde(Serdes.String())
                         .withValueSerde(Serdes.String());
 

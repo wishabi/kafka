@@ -601,7 +601,6 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
                                      StateSerdes<K, V> serdes, K prefix) {
             super(name, newIterator, serdes);
             this.rawPrefix = serdes.rawKey(prefix);
-            System.out.println("RocksDB. Prefix=" + prefix.toString()+", PrefixRawKey="+ DatatypeConverter.printHexBinary(rawPrefix));
             newIterator.seek(rawPrefix);
         }
 
@@ -614,8 +613,7 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
             byte[] rawNextKey = super.peekRawKey();
             for (int i = 0; i < rawPrefix.length; i++) {
                 if (i == rawNextKey.length) {
-                    //rocks db should have skipped that one with seek()
-                    throw new ArrayIndexOutOfBoundsException("WTF just happend?");
+                    throw new ArrayIndexOutOfBoundsException("Unexpected RocksDB Key Value. Should have been skipped with seek.");
                 }
                 if (rawNextKey[i] != rawPrefix[i]) {
                     return false;

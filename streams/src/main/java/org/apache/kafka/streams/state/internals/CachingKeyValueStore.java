@@ -177,7 +177,7 @@ class CachingKeyValueStore<K, V> extends WrappedStateStore.AbstractStateStore im
 
     @Override
     public KeyValueIterator<Bytes, byte[]> prefixScan(Bytes prefix) {
-        throw new UnsupportedOperationException(getClass().getSimpleName() + " can't perform a prefix scan");
+        return underlying.prefixScan(prefix);
     }
 
     @Override
