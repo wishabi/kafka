@@ -60,11 +60,6 @@ public class KTableJoinMergeProcessorSupplier<K0,V0,K,V,KO,VO> implements KTable
                     public void init(ProcessorContext context) {
                         leftGetter.init(context);
                         rightRepartitionedGetter.init(context);
-
-                        /* initialize here?
-                    	leftGetter.init(context);
-                    	rightRepartitionedGetter.init(context);
-                    	*/
                     }
 
                     @Override
@@ -89,7 +84,6 @@ public class KTableJoinMergeProcessorSupplier<K0,V0,K,V,KO,VO> implements KTable
 				System.arraycopy(leftNames, 0, result, 0, leftNames.length);
 				System.arraycopy(right, 0, result, leftNames.length, right.length);
 				return result; //no clue about semantics here? that way?
-
 			}
         };
     }

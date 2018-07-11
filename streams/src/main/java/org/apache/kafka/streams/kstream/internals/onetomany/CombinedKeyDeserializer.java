@@ -31,10 +31,7 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
 
         byte[] leftCount = Arrays.copyOfRange(data,0,4);
         int leftKeyLength = fourBytesToInt(leftCount);
-        //System.out.println("leftKeyLength = " + leftKeyLength);
-
         byte[] leftKeyRaw = Arrays.copyOfRange(data,4,4+leftKeyLength);
-        //System.out.println("leftKeyRaw = " + new String(leftKeyRaw));
 
         KL leftKey = leftDeserializer.deserialize(topic, leftKeyRaw);
 
@@ -44,10 +41,8 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
 
             byte[] rightCount = Arrays.copyOfRange(data, 4+leftKeyLength, 4+leftKeyLength + 4);
             int rightKeyLength = fourBytesToInt(rightCount);
-//            System.out.println("rightKeyLength = " + rightKeyLength);
 
             byte[] rightKeyRaw = Arrays.copyOfRange(data, 4+leftKeyLength + 4, 4+leftKeyLength + 4 + rightKeyLength);
-//            System.out.println("rightKeyRaw = " + new String(rightKeyRaw));
             KR rightKey = rightDeserializer.deserialize(topic, rightKeyRaw);
             return new CombinedKey<>(leftKey, rightKey);
         }

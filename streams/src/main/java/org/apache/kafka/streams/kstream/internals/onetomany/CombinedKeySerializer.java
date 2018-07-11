@@ -41,19 +41,9 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
                 output.write(rightSerializedData);
             }
         } catch (IOException e){
-            //TODO - Handle the IO exception;
-            System.out.println("ERROR SHOULD NOT BE HERE IN IOEXCEPTION");
+            //TODO - Bellemare - yech. Handle the IO exception without passing it up.. ha.
+            System.out.println("IOException while handling serialization of CombinedKey " + e.toString());
         }
-
-        String foo;
-        if (null == data.getRightKey())
-            foo = "null";
-        else
-            foo = data.getRightKey().toString();
-
-//Bellemare
-//        System.out.println("CombinedKeySerdeBytes for (KL,KR) = (" + data.getLeftKey().toString() + "," + foo
-//                + "). Bytes = " + DatatypeConverter.printHexBinary(output.toByteArray()));
 
         return output.toByteArray();
     }
@@ -62,15 +52,11 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
         ByteBuffer wrapped = ByteBuffer.allocate(4);
         wrapped.putInt(num);
         return wrapped.array();
-        //return new byte[]{ (byte)(num >>> 24),(byte)(num >>> 16),(byte)(num >>> 8),(byte)num };
     }
 
     @Override
     public void close() {
-        //TODO - Bellemare - Do I need to do this? I am passing in already configured serializers...
         this.leftSerializer.close();
         this.rightSerializer.close();
     }
-
-
 }

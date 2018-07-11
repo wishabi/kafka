@@ -14,20 +14,10 @@ public class PartialKeyPartitioner<KL,KR,V> implements StreamPartitioner<Combine
 		this.topic = topic;
 	}
 
-//	@Override
-//	public Integer partition(K key, V value, int numPartitions) {
-//		/**
-//		 * maybe allow user to supply inner Streampartitioner?
-//		 * only works if left side is murmurpartitioned in this case
-//		 */
-//		return Utils.toPositive(Utils.murmur2(keySerializer.serialize(topic, extractor.apply(key)))) % numPartitions;
-//	}
-
 	@Override
 	public Integer partition(CombinedKey<KL, KR> key, V value, int numPartitions) {
 		byte[] data = keySerializer.serialize(topic, key.getLeftKey());
 		int partition = Utils.toPositive(Utils.murmur2(data)) % numPartitions;
-		System.out.println("Kafka: Serialize (" + key.getLeftKey().toString() + "," + key.getRightKey().toString() + "), using left serde. " + "Topic = " + topic + ", partition = " + partition + ". Total partitions = " + numPartitions);
 		return partition;
 	}
 }

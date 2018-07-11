@@ -2299,7 +2299,6 @@ public interface KTable<K, V> {
                                                         final ValueJoiner<VL, VR, V0> joiner,
                                                         final Materialized<KR, V0, KeyValueStore<Bytes, byte[]>> materialized,
                                                         Serde<KL> thisKeySerde,
-                                                        Serde<VL> thisValueSerde,
                                                         Serde<KR> otherKeySerde,
                                                         Serde<VR> otherValueSerde,
                                                         Serde<V0> joinedValueSerde);

@@ -53,7 +53,6 @@ public class KTableKTableOneToManyJoinTest {
 
     private final Serde<String> stringSerde = Serdes.String();
     private final Consumed<String, String> consumed = Consumed.with(stringSerde, stringSerde);
-    //private final Materialized<Integer, String, KeyValueStore<Bytes, byte[]>> materialized = Materialized.with(intSerde, stringSerde);
 
     private File stateDir = null;
 
@@ -66,135 +65,6 @@ public class KTableKTableOneToManyJoinTest {
     public void setUp() {
         stateDir = TestUtils.tempDirectory("kafka-test");
     }
-
-//    private void doTestJoin(final StreamsBuilder builder,
-//                            final String[] expectedKeys,
-//                            final MockProcessorSupplier<String, String> supplier,
-//                            final KTable<String, String> joined) {
-//
-//        StreamsBuilderTest.internalTopologyBuilder(builder).setApplicationId(APP_ID);
-//
-//        final Collection<Set<String>> copartitionGroups = StreamsBuilderTest.getCopartitionedGroups(builder);
-//
-//        //assertEquals(1, copartitionGroups.size()); //TODO What is this even testing?
-//        //assertEquals(new HashSet<>(Arrays.asList(topic1, topic2)), copartitionGroups.iterator().next());
-//
-//        final KTableValueGetterSupplier<String, String> getterSupplier = ((KTableImpl<String, String, String>) joined).valueGetterSupplier();
-//
-//        driver.setUp(builder, stateDir, Serdes.String(), Serdes.String());
-//        driver.setTime(0L);
-//
-//        final KTableValueGetter<String, String> getter = getterSupplier.get();
-//        getter.init(driver.context());
-//
-//
-//        for (StateStore o: driver.allStateStores().values()) {
-//            System.out.println("The state store is = " + o.name() + ", type = " + o.toString());
-//        }
-//
-//        for (int i = 0; i < 3; i++) {
-//            driver.process(topic1, expectedKeys[i], expectedKeys[i] + ",X");
-//            System.out.println("Table1-row = (" + expectedKeys[i] + ", " + expectedKeys[i] + ",X)" );
-//        }
-//        // pass tuple with null key, it will be discarded in join process
-//        //driver.process(topic1, null, "SomeVal");
-//        driver.flushState();
-//
-//
-//        for (int i = 5; i < 8; i++) {
-//            driver.process(topic2, String.valueOf(i), "1,"+i+",YYYY");
-//            System.out.println("Table2-row = (" + String.valueOf(i) + ", 1,"+i+",YYYY)" );
-//        }
-//        // pass tuple with null key, it will be discarded in join process
-//        //driver.process(topic2, null, "AnotherVal");
-//        driver.flushState();
-//
-//        supplier.checkAndClearProcessResult("5:value1=1,X,value2=1,5,YYYY", "6:value1=1,X,value2=1,6,YYYY", "7:value1=1,X,value2=1,7,YYYY");
-//
-//        checkJoinedValues(getter, kv("5", "value1=1,X,value2=1,5,YYYY"), kv("6", "value1=1,X,value2=1,6,YYYY"), kv("7","value1=1,X,value2=1,7,YYYY"));
-//
-//        //Now update from the other side.
-//        driver.process(topic1, "1", "1,XYZ");
-//        driver.flushState();
-//
-//        supplier.checkAndClearProcessResult("5:value1=1,XYZ,value2=1,5,YYYY", "6:value1=1,XYZ,value2=1,6,YYYY", "7:value1=1,XYZ,value2=1,7,YYYY");
-//        checkJoinedValues(getter, kv("5", "value1=1,XYZ,value2=1,5,YYYY"), kv("6", "value1=1,XYZ,value2=1,6,YYYY"), kv("7","value1=1,XYZ,value2=1,7,YYYY"));
-//
-//        for (int i = 2; i < 4; i++) {
-//            driver.process(topic2, String.valueOf(i), "2,"+i+",YYYY");
-//            System.out.println("Table2-row = (" + String.valueOf(i) + ", 2,"+i+",YYYY)" );
-//        }
-//        // pass tuple with null key, it will be discarded in join process
-//        //driver.process(topic2, null, "AnotherVal");
-//        driver.flushState();
-//
-//        supplier.checkAndClearProcessResult("2:value1=2,X,value2=2,2,YYYY", "3:value1=2,X,value2=2,3,YYYY");
-//    }
-//
-//    @Test
-//    public void testJoin() {
-//        final StreamsBuilder builder = new StreamsBuilder();
-//
-//        final String[] expectedKeys = new String[]{"0", "1", "2", "3"};
-//
-//        final KTable<String, String> table1;
-//        final KTable<String, String> table2;
-//        final KTable<String, String> joined;
-//        final MockProcessorSupplier<String, String> supplier = new MockProcessorSupplier<>();
-//        table1 = builder.table(topic1, consumed);
-//        table2 = builder.table(topic2, consumed);
-//
-//
-//        //One is on the left
-//        //Many is on the right.
-//        //Rekey the many on the right to join the one on the left.
-//        ValueMapper<String, String> tableOneKeyExtractor = new ValueMapper<String, String>() {
-//            @Override
-//            public String apply(String value) {
-//                //Assuming format of: "foreignKey,primaryKey,metadata"
-//                String[] ss = value.split(",");
-//                System.out.println("Extracted data: " + ss);
-//                return ss[0];
-//            }
-//        };
-//
-//        ValueJoiner<String, String, String> joiner = new ValueJoiner<String, String, String>() {
-//            @Override
-//            public String apply(final String value1, final String value2) {
-//                return "(value1=" + value1 + ",value2=" + value2 + ")";
-//            }
-//        };
-//
-//        CombinedKey<String, Double> foo = new CombinedKey<>("eat pant. eat all the pant. only eat pant.", 24.23423161346);
-//
-//        CombinedKeySerde<String, Double> ff = new CombinedKeySerde<>(Serdes.String(), Serdes.Double());
-//
-//        byte[] ss = ff.serializer().serialize("dummyTopic", foo);
-//        CombinedKey<String, Double> gg = ff.deserializer().deserialize("dummyTopic", ss);
-//
-//        System.out.println("gg equals:");
-//        System.out.println(gg.getLeftKey());
-//        System.out.println(gg.getRightKey());
-//        System.out.println("foo equals:");
-//        System.out.println(foo.getLeftKey());
-//        System.out.println(foo.getRightKey());
-//
-//
-//        Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat =
-//                Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore")
-//                        .withCachingDisabled()
-//                        .withLoggingDisabled()
-//                        .withKeySerde(Serdes.String())
-//                        .withValueSerde(Serdes.String());
-//
-//        joined = table1
-//                .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
-//
-//        //Load the process supplier for the test.
-//        joined.toStream().process(supplier);
-//
-//        doTestJoin(builder, expectedKeys, supplier, joined);
-//    }
 
     @Test
     public void testJoin() {
@@ -221,7 +91,6 @@ public class KTableKTableOneToManyJoinTest {
             public String apply(String value) {
                 //Assuming format of: "foreignKey,metadata"
                 String[] ss = value.split(",");
-                System.out.println("Extracted data: " + ss);
                 return ss[0];
             }
         };
@@ -240,13 +109,6 @@ public class KTableKTableOneToManyJoinTest {
         byte[] ss = ff.serializer().serialize("dummyTopic", foo);
         CombinedKey<String, Double> gg = ff.deserializer().deserialize("dummyTopic", ss);
 
-        System.out.println("gg equals:");
-        System.out.println(gg.getLeftKey());
-        System.out.println(gg.getRightKey());
-        System.out.println("foo equals:");
-        System.out.println(foo.getLeftKey());
-        System.out.println(foo.getRightKey());
-
         Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat =
                 Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore")
                 .withCachingDisabled()
@@ -256,8 +118,6 @@ public class KTableKTableOneToManyJoinTest {
 
         Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat2 =
                 Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore2")
-//                        .withCachingDisabled()
-//                        .withLoggingDisabled()
                         .withKeySerde(Serdes.String())
                         .withValueSerde(Serdes.String());
 
@@ -297,14 +157,8 @@ public class KTableKTableOneToManyJoinTest {
         final KTableValueGetter<String, String> getter = getterSupplier.get();
         getter.init(driver.context());
 
-
-        for (StateStore o: driver.allStateStores().values()) {
-            System.out.println("The state store is = " + o.name() + ", type = " + o.toString());
-        }
-
         for (int i = 0; i < 3; i++) {
             driver.process(topic1, expectedKeys[i], expectedKeys[i] + ",X");
-            System.out.println("Table1-row = (" + expectedKeys[i] + ", " + expectedKeys[i] + ",X)" );
         }
         // pass tuple with null key, it will be discarded in join process
         //driver.process(topic1, null, "SomeVal");
@@ -313,7 +167,6 @@ public class KTableKTableOneToManyJoinTest {
 
         for (int i = 5; i < 8; i++) {
             driver.process(topic2, String.valueOf(i), "1,"+i+",YYYY");
-            System.out.println("Table2-row = (" + String.valueOf(i) + ", 1,"+i+",YYYY)" );
         }
         // pass tuple with null key, it will be discarded in join process
         //driver.process(topic2, null, "AnotherVal");
@@ -332,7 +185,6 @@ public class KTableKTableOneToManyJoinTest {
 
         for (int i = 12; i < 13; i++) {
             driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
-            System.out.println("Table3-row = (" + String.valueOf(i) + ", 6,"+i+",ZZZZ)" );
         }
         // pass tuple with null key, it will be discarded in join process
         //driver.process(topic2, null, "AnotherVal");
@@ -340,8 +192,6 @@ public class KTableKTableOneToManyJoinTest {
 
         supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
     }
-
-
 
     private KeyValue<String, String> kv(final String key, final String value) {
         return new KeyValue<>(key, value);

@@ -101,7 +101,6 @@ class KTableKTableJoinMerger<K, V> implements KTableProcessorSupplier<K, V, V> {
 
         @Override
         public void process(K key, Change<V> value) {
-            System.out.println( System.currentTimeMillis() + " KKJoinMerger Key = (" + key + ")," + ", Value = " + value);
             if (queryableName != null) {
                 store.put(key, value.newValue);
                 tupleForwarder.maybeForward(key, value.newValue, value.oldValue);
