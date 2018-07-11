@@ -53,8 +53,8 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
          */
         @Override
         public void process(KL key, Change<VL> leftChange) {
-
-            System.out.println("KTableKTableRangeJoin Processing. Key = " + key + ", Change = " + leftChange.toString());
+            //Bellemare
+            System.out.println(System.currentTimeMillis() + "KTableKTableRangeJoin Processing. Key = " + key + ", Change = " + leftChange.toString());
             // the keys should never be null
             if (key == null)
                 throw new StreamsException("Record key for KTable join operator should not be null.");
@@ -64,13 +64,13 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
 
            final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
 
-           boolean found = false;
+//           boolean found = false;
 
             while(rightValues.hasNext()){
-                found = true;
+//                found = true;
                   KeyValue<CombinedKey<KL,KR>, VR> rightKeyValue = rightValues.next();
-                  System.out.println("KKTJ - prefixScannedResult rightKeyValue = (KL,KR) = (" + rightKeyValue.key.getLeftKey().toString() + ", " +
-                  rightKeyValue.key.getRightKey().toString() + "). Value = " + rightKeyValue.value.toString());
+                  //Bellemare - System.out.println("KKTJ - prefixScannedResult rightKeyValue = (KL,KR) = (" + rightKeyValue.key.getLeftKey().toString() + ", " +
+//                  rightKeyValue.key.getRightKey().toString() + "). Value = " + rightKeyValue.value.toString());
 
                   KR realKey = rightKeyValue.key.getRightKey();
                   VR value2 = rightKeyValue.value;
@@ -85,12 +85,13 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
                       newValue = joiner.apply(leftChange.newValue, value2);
                   }
 
+                  System.out.println( System.currentTimeMillis() + " KTableKTableRangeJoinProc - Forwarding: (" + realKey +"), " + new Change<>(newValue, oldValue));
 				 context().forward(realKey, new Change<>(newValue, oldValue));
                   
             }
-            if (!found) {
-                System.out.println("KKTJ - prefixScan zero results.");
-            }
+//            if (!found) {
+//                System.out.println("KKTJ - prefixScan zero results.");
+//            }
         }
     }
 }

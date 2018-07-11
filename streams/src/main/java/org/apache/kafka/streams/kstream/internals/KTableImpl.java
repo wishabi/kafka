@@ -51,6 +51,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Set;
@@ -918,6 +919,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                                Serde<V0> joinedValueSerde) {
 
         ((KTableImpl<?, ?, ?>) other).enableSendingOldValues();
+
+        //TODO - leftOuter == false?
         enableSendingOldValues();
 
         InternalTopologyBuilder topology = builder.internalTopologyBuilder;
@@ -929,11 +932,9 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         final String repartitionProcessorName = repartitionerName + "-" + SELECT_NAME;
         final String repartitionSourceName = repartitionerName + "-source";
         final String repartitionSinkName = repartitionerName + "-sink";
-        final String joinThisName = repartitionerName + "-table";
+        final String joinOnThisTableName = repartitionerName + "-table";
 
         // repartition original => intermediate topic
-
-        //<KL, KR, VR>
         KTableRepartitionerProcessorSupplier<KL, KR, VR> repartitionProcessor =
                 new KTableRepartitionerProcessorSupplier<>(keyExtractor);
 
@@ -943,87 +944,89 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Partitions the data according to the prefix.
         CombinedKeySerde<KL, KR> combinedKeySerde = new CombinedKeySerde<>(thisKeySerde, otherKeySerde);
 
-        PartialKeyPartitioner<KL, KR, VR> partitioner = new PartialKeyPartitioner<>(combinedKeySerde, repartitionTopicName); //TODO - Bellemare2 - is this the right topic?
+        PartialKeyPartitioner<KL, KR, VR> partitioner = new PartialKeyPartitioner<>(combinedKeySerde, repartitionTopicName);
 
         topology.addSink(repartitionSinkName, repartitionTopicName,
                 combinedKeySerde.serializer(), otherValueSerde.serializer(),
                 partitioner, repartitionProcessorName);
 
-        // Re read partitioned topic and copartition with left
-        //TODO - Are the nulls below okay?
-        topology.addSource(null, repartitionSourceName, null, combinedKeySerde.deserializer(), otherValueSerde.deserializer(), repartitionTopicName);
+        // Re read partitioned topic
+        topology.addSource(null, repartitionSourceName, new FailOnInvalidTimestamp(), combinedKeySerde.deserializer(), otherValueSerde.deserializer(), repartitionTopicName);
         String joinByRangeName = builder.newProcessorName(BY_RANGE);
 
-        //Pretty sure this does two things:
+        //This does two things:
         // 1) Loads the data into a stateStore for the following rangescan.
         // 2) Drives the join logic from the right. Uses the leftKeyExtractor to get partial key,
         //    then uses the partial key to get the left value from this store.
         //    Applies the join logic.
-        //    Returns the data keyed on the RightKey, which is the original key.
+        //    Returns the data keyed on the RightKey.
 
-        final NonRangeKeyValueGetterProviderAndProcessorSupplier<KL, KR, VL, VR, V> joinThis =
+        //TODO - a Bug here involving capture<?>
+        final NonRangeKeyValueGetterProviderAndProcessorSupplier<KL, KR, VL, VR, V> joinOnThisTable =
                 new NonRangeKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), joiner);
-        topology.addProcessor(joinThisName, joinThis, repartitionSourceName);
+        topology.addProcessor(joinOnThisTableName, joinOnThisTable, repartitionSourceName);
 
+        //Create a state store. The NonRangeKeyValueGetterProviderAndProcessorSupplier accesses it via the repartitionTopicName handle.
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
-
         Materialized mat = Materialized.<CombinedKey<KL, KR>, VR>as(rdbs)
-                .withCachingDisabled() //TODO - Bellemare - Doesn't support prefix scanning...
-                .withLoggingDisabled() //TODO - Bellemare - Doesn't support prefix scanning...
+                .withCachingDisabled()  //Want to send all updates...
                 .withKeySerde(combinedKeySerde)
                 .withValueSerde(otherValueSerde);
-
-        MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> materializedInternal =
+        MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> repartitionedRangeScannableStore =
                 new MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>(mat, builder, "SOMEFOO");
-        topology.addStateStore(new KeyValueStoreMaterializer<>(materializedInternal).materialize(), joinThisName);
+        topology.addStateStore(new KeyValueStoreMaterializer<>(repartitionedRangeScannableStore).materialize(), joinOnThisTableName);
 
         //Performs Left-driven updates (ie: new One, updates the Many).
         //Produces with the Real Key.
-        KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinThis.valueGetterSupplier();
-
+        KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinOnThisTable.valueGetterSupplier();
         KTableKTableRangeJoin<KL, KR, VL, VR, V0> joinByRange
                 = new KTableKTableRangeJoin<>(f, joiner);
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
 
-
-        KTableImpl<KR, V, V0> myThis = new KTableImpl<>(builder, joinThisName, joinThis, sourceNodes, this.queryableStoreName, false);
+        //Join the left and the right outputs together into a new table.
+        KTableImpl<KR, V, V0> myThis = new KTableImpl<>(builder, joinOnThisTableName, joinOnThisTable, sourceNodes, this.queryableStoreName, false);
         KTableImpl<KR, V, V0> myThat = new KTableImpl<>(builder, joinByRangeName, joinByRange, ((KTableImpl<K, ?, ?>) other).sourceNodes,
                 ((KTableImpl<K, ?, ?>) other).queryableStoreName, false);
 
-        Materialized myMat = Materialized.<KR, V0, KeyValueStore<Bytes, byte[]>>with(otherKeySerde, joinedValueSerde)
-                .withCachingDisabled()
-                .withLoggingDisabled();
-
+        Materialized myMat = Materialized.<KR, V0, KeyValueStore<Bytes, byte[]>>with(otherKeySerde, joinedValueSerde);
         MaterializedInternal<KR, V0, KeyValueStore<Bytes, byte[]>> myUselessMaterializedStore = new MaterializedInternal(myMat, builder, "SOME_HANDLE_NAME");
-
 
         //TODO - Figure out how to avoid materializing this...
         final KTableKTableJoinMerger<KR, V0> joinMerge = new KTableKTableJoinMerger<>(
                 myThis,
                 myThat,
-//                internalQueryableName);
                 myUselessMaterializedStore.storeName());
 
-        //topology.addStateStore(new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize(), joinThisName);
+        //topology.addStateStore(new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize(), joinOnThisTableName);
 
         final Set<String> allSourceNodes = ensureJoinableWith((AbstractStream<K>) other); //TODO Unsafe probably... sigh.
 
-        topology.addProcessor(joinMergeName, joinMerge, joinThisName, joinByRangeName);
-        topology.connectProcessorAndStateStores(joinThisName, valueGetterSupplier().storeNames());
-        topology.connectProcessorAndStateStores(joinByRangeName, repartitionTopicName);
+        topology.addProcessor(joinMergeName, joinMerge, joinOnThisTableName, joinByRangeName);
+        topology.connectProcessorAndStateStores(joinOnThisTableName, valueGetterSupplier().storeNames());
+        //TODO - Bellemare - July 11 732AM I changed the below. Also pretty sure my change is WRONG.
+        //topology.connectProcessorAndStateStores(joinByRangeName, repartitionTopicName);
+        topology.connectProcessorAndStateStores(joinByRangeName, repartitionedRangeScannableStore.storeSupplier().get().name());
+        //TODO - Bellemare - July 11 732AM I changed the above
 
+
+
+        HashSet<String> sourcesNeedCopartitioning = new HashSet<>();
+        sourcesNeedCopartitioning.add(repartitionSourceName);
+        sourcesNeedCopartitioning.addAll(sourceNodes);
+        sourcesNeedCopartitioning.addAll(((KTableImpl<K, ?, ?>) other).sourceNodes);
+        topology.copartitionSources(sourcesNeedCopartitioning);
 
 
         //TODO - EVERYTHING BELOW HERE IS EXPERIMENTAL
-            final StoreBuilder<KeyValueStore<KR, V0>> storeBuilder
-                    = new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize();
-            builder.internalTopologyBuilder.addStateStore(storeBuilder, joinMergeName);
+        final StoreBuilder<KeyValueStore<KR, V0>> storeBuilder
+                = new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize();
+        builder.internalTopologyBuilder.addStateStore(storeBuilder, joinMergeName);
 
         String asdfTableName = builder.newProcessorName(SOURCE_NAME);
         KTable asdf = new KTableImpl<>(builder,
                 asdfTableName,
                 joinMerge,
-                allSourceNodes,
+                sourcesNeedCopartitioning,
                 myUselessMaterializedStore.storeName(),
                 myUselessMaterializedStore.storeName() != null);
 
@@ -1037,12 +1040,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         asdf
             .toStream()
             .to(outputRepartitionSinkTopicName, Produced.with(otherKeySerde, joinedValueSerde));
-
-        LinkedList<String> sourcesNeedCopartitioning = new LinkedList<>();
-        sourcesNeedCopartitioning.add(repartitionSourceName);
-        sourcesNeedCopartitioning.add(outputRepartitionSinkTopicName);
-        sourcesNeedCopartitioning.addAll(sourceNodes);
-        topology.copartitionSources(sourcesNeedCopartitioning);
 
         return builder.table(outputRepartitionSinkTopicName,
             new ConsumedInternal<>(otherKeySerde, joinedValueSerde, new FailOnInvalidTimestamp(), null),

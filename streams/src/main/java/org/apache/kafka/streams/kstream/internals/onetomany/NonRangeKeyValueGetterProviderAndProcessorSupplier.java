@@ -53,7 +53,8 @@ public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V
             @Override
             public void process(CombinedKey<KL,KR> key, VR value)
             {
-                System.out.println("NonRangeKeyValueProcessor Combined = (" + key.getLeftKey().toString() + "," + key.getRightKey().toString()+")" + ", Value = " + value);
+                //Bellemare
+                System.out.println(System.currentTimeMillis() + "NonRangeKVPRoc Combined = (" + key.getLeftKey().toString() + "," + key.getRightKey().toString()+")" + ", Value = " + value);
                 VR oldVal = store.get(key);
                 store.put(key, value);
 
@@ -75,6 +76,8 @@ public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V
                 //TODO - Bellemare - Am I using the right generic types in this class?
                 if(oldValue != null || newValue != null) {
                     KR realKey = key.getRightKey();
+                    //Bellemare
+                    System.out.println(System.currentTimeMillis() + " NonRangeKVPRoc - Forwarding: " + realKey + ", " + new Change<>(newValue, oldValue));
                     context().forward(realKey, new Change<>(newValue, oldValue));
                 }
             }

@@ -25,6 +25,9 @@ public class PartialKeyPartitioner<KL,KR,V> implements StreamPartitioner<Combine
 
 	@Override
 	public Integer partition(CombinedKey<KL, KR> key, V value, int numPartitions) {
-		return Utils.toPositive(Utils.murmur2(keySerializer.serialize(topic, key.getLeftKey()))) % numPartitions;
+		byte[] data = keySerializer.serialize(topic, key.getLeftKey());
+		int partition = Utils.toPositive(Utils.murmur2(data)) % numPartitions;
+		System.out.println("Kafka: Serialize (" + key.getLeftKey().toString() + "," + key.getRightKey().toString() + "), using left serde. " + "Topic = " + topic + ", partition = " + partition + ". Total partitions = " + numPartitions);
+		return partition;
 	}
 }

@@ -51,9 +51,9 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
         else
             foo = data.getRightKey().toString();
 
-
-        System.out.println("CombinedKeySerdeBytes for (KL,KR) = (" + data.getLeftKey().toString() + "," + foo
-                + "). Bytes = " + DatatypeConverter.printHexBinary(output.toByteArray()));
+//Bellemare
+//        System.out.println("CombinedKeySerdeBytes for (KL,KR) = (" + data.getLeftKey().toString() + "," + foo
+//                + "). Bytes = " + DatatypeConverter.printHexBinary(output.toByteArray()));
 
         return output.toByteArray();
     }

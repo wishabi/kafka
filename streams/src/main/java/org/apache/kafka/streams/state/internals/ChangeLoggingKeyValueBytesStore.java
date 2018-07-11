@@ -99,6 +99,6 @@ public class ChangeLoggingKeyValueBytesStore extends WrappedStateStore.AbstractS
 
     @Override
     public KeyValueIterator<Bytes, byte[]> prefixScan(Bytes prefix) {
-        throw new UnsupportedOperationException(getClass().getSimpleName() + " can't perform a prefix scan");
+        return inner.prefixScan(prefix);
     }
 }
