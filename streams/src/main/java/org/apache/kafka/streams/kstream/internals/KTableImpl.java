@@ -988,9 +988,11 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         topology.connectProcessorAndStateStores(joinByRangeName, repartitionedRangeScannableStore.storeSupplier().get().name());
 
         HashSet<String> sourcesNeedCopartitioning = new HashSet<>();
+
+        //This is done to ensure that the repartitionedSource and the sourceNodes from this table are correctly partitioned.
+        //If they are not, this will ensure that they are repartitioned into the size of the largest partition count.
         sourcesNeedCopartitioning.add(repartitionSourceName);
         sourcesNeedCopartitioning.addAll(sourceNodes);
-        sourcesNeedCopartitioning.addAll(((KTableImpl<K, ?, ?>) other).sourceNodes);
         topology.copartitionSources(sourcesNeedCopartitioning);
 
         final StoreBuilder<KeyValueStore<KR, V0>> storeBuilder
