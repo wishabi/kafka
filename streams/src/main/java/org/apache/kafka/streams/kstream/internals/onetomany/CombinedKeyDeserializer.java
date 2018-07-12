@@ -22,7 +22,7 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
 
     @Override
     public void configure(Map<String, ?> configs, boolean isKey) {
-        //TODO - Bellemare - do I need to configure them or are they already done?
+        //Don't need to configure them, as they are already configured. This is only a wrapper.
     }
 
     @Override

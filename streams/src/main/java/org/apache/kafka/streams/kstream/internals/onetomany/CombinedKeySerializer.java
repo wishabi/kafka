@@ -20,14 +20,12 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
     @Override
     public void configure(Map<String, ?> configs, boolean isKey) {
-        //TODO - Bellemare - Do I need to do this? I am passing in already configured serializers...
-//        this.leftSerializer.configure(configs, isKey);
-//        this.rightSerializer.configure(configs, isKey);
+        //Don't need to configure, they are already configured. This is just a wrapper.
     }
 
     @Override
     public byte[] serialize(String topic, CombinedKey<KL, KR> data) {
-        byte[] leftSerializedData = leftSerializer.serialize("dummyTopic", data.getLeftKey());
+        byte[] leftSerializedData = leftSerializer.serialize(topic, data.getLeftKey());
         byte[] leftSize = numToBytes(leftSerializedData.length);
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -35,14 +33,14 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
             output.write(leftSize);
             output.write(leftSerializedData);
             if (data.getRightKey() != null) {
-                byte[] rightSerializedData = rightSerializer.serialize("dummyTopic", data.getRightKey());
+                byte[] rightSerializedData = rightSerializer.serialize(topic, data.getRightKey());
                 byte[] rightSize = numToBytes(rightSerializedData.length);
                 output.write(rightSize);
                 output.write(rightSerializedData);
             }
         } catch (IOException e){
             //TODO - Bellemare - yech. Handle the IO exception without passing it up.. ha.
-            System.out.println("IOException while handling serialization of CombinedKey " + e.toString());
+            //System.out.println("IOException while handling serialization of CombinedKey " + e.toString());
         }
 
         return output.toByteArray();
