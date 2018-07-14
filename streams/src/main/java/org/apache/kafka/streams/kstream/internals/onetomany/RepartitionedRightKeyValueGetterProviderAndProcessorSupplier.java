@@ -13,7 +13,7 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V> implements ProcessorSupplier<CombinedKey<KL,KR>, VR>
+public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V> implements ProcessorSupplier<CombinedKey<KL,KR>, VR>
 {
 
     private final String topicName;
@@ -21,9 +21,9 @@ public class NonRangeKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V
     private final ValueJoiner<VL, VR, V> joiner;
 
     //Right driven updates
-    public NonRangeKeyValueGetterProviderAndProcessorSupplier(String topicName,
-                                                              KTableValueGetterSupplier<KL, VL> leftValueGetter ,
-                                                              ValueJoiner<VL, VR, V> joiner)
+    public RepartitionedRightKeyValueGetterProviderAndProcessorSupplier(String topicName,
+                                                                        KTableValueGetterSupplier<KL, VL> leftValueGetter ,
+                                                                        ValueJoiner<VL, VR, V> joiner)
     {
         this.topicName = topicName;
         this.joiner = joiner;

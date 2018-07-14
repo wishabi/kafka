@@ -36,8 +36,8 @@ import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKey;
 import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeySerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableKTableRangeJoin;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableRepartitionerProcessorSupplier;
-import org.apache.kafka.streams.kstream.internals.onetomany.PartialKeyPartitioner;
-import org.apache.kafka.streams.kstream.internals.onetomany.NonRangeKeyValueGetterProviderAndProcessorSupplier;
+import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeyLeftKeyPartitioner;
+import org.apache.kafka.streams.kstream.internals.onetomany.RepartitionedRightKeyValueGetterProviderAndProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.processor.StreamPartitioner;
@@ -52,7 +52,6 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Set;
 
@@ -905,7 +904,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                                Serde<KR> otherKeySerde,
                                                                Serde<VR> otherValueSerde,
                                                                Serde<V0> joinedValueSerde) {
-
         ((KTableImpl<?, ?, ?>) other).enableSendingOldValues();
 
         //TODO - leftOuter == false?
@@ -926,40 +924,47 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         KTableRepartitionerProcessorSupplier<KL, KR, VR> repartitionProcessor =
                 new KTableRepartitionerProcessorSupplier<>(keyExtractor);
 
-        //Rekeys the data.
+        //Add the processor for rekeying the right key
         topology.addProcessor(repartitionProcessorName, repartitionProcessor, ((AbstractStream<?>) other).name);
 
-        //Partitions the data according to the prefix.
+        //Create a Serde for the Combined left and right key.
         CombinedKeySerde<KL, KR> combinedKeySerde = new CombinedKeySerde<>(thisKeySerde, otherKeySerde);
 
-        PartialKeyPartitioner<KL, KR, VR> partitioner = new PartialKeyPartitioner<>(combinedKeySerde, repartitionTopicName);
+        //Create the partitioner that will just partition on the left key.
+        CombinedKeyLeftKeyPartitioner<KL, KR, VR> partitioner = new CombinedKeyLeftKeyPartitioner<>(combinedKeySerde, repartitionTopicName);
 
+        //Takes the results of the partitioner and sinks them to an internal topic, properly repartitioned according to the left foreign key.
         topology.addSink(repartitionSinkName, repartitionTopicName,
                 combinedKeySerde.serializer(), otherValueSerde.serializer(),
                 partitioner, repartitionProcessorName);
 
-        // Re-read partitioned topic
+        //Re-read partitioned topic, copartitioned with the left table keys.
         topology.addSource(null, repartitionSourceName, new FailOnInvalidTimestamp(), combinedKeySerde.deserializer(), otherValueSerde.deserializer(), repartitionTopicName);
-        String joinByRangeName = builder.newProcessorName(BY_RANGE);
 
-        //This does two things:
-        // 1) Loads the data into a stateStore for the following rangescan.
-        // 2) Drives the join logic from the right. Uses the leftKeyExtractor to get partial key,
-        //    then uses the partial key to get the left value from this store.
+        //This is the right side's processor. It does two main things:
+        // 1) Loads the data into a stateStore, to be accessed by the KTableKTableRangeJoin processor (the left side's processor).
+        // 2) Drives the join logic from the right.
+        //    Uses the left key from CombinedKey to access the left value from the left statestore.
         //    Applies the join logic.
-        //    Returns the data keyed on the RightKey.
-        final NonRangeKeyValueGetterProviderAndProcessorSupplier<KL, KR, VL, VR, V> joinOnThisTable =
-                new NonRangeKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), joiner);
+        //    Returns the data keyed on the RightKey. Discards the CombinedKey as it is no longer needed after this stage.
+        //TODO -  repartitionTopicName is used as the stateStoreName under the hood. Make it clearer?
+        String joinByRangeName = builder.newProcessorName(BY_RANGE);
+        final RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL, KR, VL, VR, V> joinOnThisTable =
+                new RepartitionedRightKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), joiner);
         topology.addProcessor(joinOnThisTableName, joinOnThisTable, repartitionSourceName);
 
-        //Create a state store. The NonRangeKeyValueGetterProviderAndProcessorSupplier accesses it via the repartitionTopicName handle.
+        // Create a state store.
+        // The RepartitionedRightKeyValueGetterProviderAndProcessorSupplier accesses it via the repartitionTopicName handle.
+        // The state store is named repartitionTopicName. It is populated by the right processor and read by the left processor.
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
         Materialized mat = Materialized.<CombinedKey<KL, KR>, VR>as(rdbs)
-                .withCachingDisabled()  //Want to send all updates...
+                .withCachingDisabled()
                 .withKeySerde(combinedKeySerde)
                 .withValueSerde(otherValueSerde);
         MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> repartitionedRangeScannableStore =
                 new MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>(mat, builder, "SOMEFOO");
+
+        //This connects the right processor with the state store in the topology.
         topology.addStateStore(new KeyValueStoreMaterializer<>(repartitionedRangeScannableStore).materialize(), joinOnThisTableName);
 
         //Performs Left-driven updates (ie: new One, updates the Many).
@@ -967,6 +972,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinOnThisTable.valueGetterSupplier();
         KTableKTableRangeJoin<KL, KR, VL, VR, V0> joinByRange
                 = new KTableKTableRangeJoin<>(f, joiner);
+        //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
 
         //Join the left and the right outputs together into a new table.
@@ -983,14 +989,17 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 myThat,
                 myUselessMaterializedStore.storeName());
 
+        //Add the join processor to the topology.
         topology.addProcessor(joinMergeName, joinMerge, joinOnThisTableName, joinByRangeName);
+        //Connect the left processor to the to the left valueGetter (state store or predecessor processor)
+        //Connect the right processor to the repartitionedRangeScannableStore.
         topology.connectProcessorAndStateStores(joinOnThisTableName, valueGetterSupplier().storeNames());
         topology.connectProcessorAndStateStores(joinByRangeName, repartitionedRangeScannableStore.storeSupplier().get().name());
 
+        //Ensure that the repartitionedSource and the sourceNodes from this table are correctly co-partitioned.
+        //If they are not, this will ensure that they are repartitioned into the size of the largest partition count,
+        //and are allocated such that the same partition number (with the same keys) are on the same node.
         HashSet<String> sourcesNeedCopartitioning = new HashSet<>();
-
-        //This is done to ensure that the repartitionedSource and the sourceNodes from this table are correctly partitioned.
-        //If they are not, this will ensure that they are repartitioned into the size of the largest partition count.
         sourcesNeedCopartitioning.add(repartitionSourceName);
         sourcesNeedCopartitioning.addAll(sourceNodes);
         topology.copartitionSources(sourcesNeedCopartitioning);

@@ -40,6 +40,8 @@ import org.junit.Test;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -122,10 +124,10 @@ public class KTableKTableOneToManyJoinTest {
                         .withValueSerde(Serdes.String());
 
         joined = table1
-                .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
+                .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
 
         joined2 = joined
-                .oneToManyJoin(table3, tableOneKeyExtractor, joiner, mat2, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
+                .oneToManyJoin(table3, tableOneKeyExtractor, joiner, mat2, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
 
         //Load the process supplier for the test.
         joined.toStream().process(supplier);
@@ -146,8 +148,15 @@ public class KTableKTableOneToManyJoinTest {
 
         final Collection<Set<String>> copartitionGroups = StreamsBuilderTest.getCopartitionedGroups(builder);
 
-        //assertEquals(1, copartitionGroups.size()); //TODO What is this even testing?
-        //assertEquals(new HashSet<>(Arrays.asList(topic1, topic2)), copartitionGroups.iterator().next());
+        //This ensures that there is a copartition between the repartitioned right table and the left table.
+
+        Iterator f = copartitionGroups.iterator();
+        while (f.hasNext())
+            System.out.println(f.next());
+
+        assertEquals(1, copartitionGroups.size());
+
+
 
         final KTableValueGetterSupplier<String, String> getterSupplier = ((KTableImpl<String, String, String>) joined).valueGetterSupplier();
 
@@ -161,15 +170,14 @@ public class KTableKTableOneToManyJoinTest {
             driver.process(topic1, expectedKeys[i], expectedKeys[i] + ",X");
         }
         // pass tuple with null key, it will be discarded in join process
-        //driver.process(topic1, null, "SomeVal");
+        driver.process(topic1, null, "SomeVal");
         driver.flushState();
-
 
         for (int i = 5; i < 8; i++) {
             driver.process(topic2, String.valueOf(i), "1,"+i+",YYYY");
         }
         // pass tuple with null key, it will be discarded in join process
-        //driver.process(topic2, null, "AnotherVal");
+        driver.process(topic2, null, "AnotherVal");
         driver.flushState();
 
         supplier.checkAndClearProcessResult("5:value1=1,X,value2=1,5,YYYY", "6:value1=1,X,value2=1,6,YYYY", "7:value1=1,X,value2=1,7,YYYY");
@@ -187,7 +195,7 @@ public class KTableKTableOneToManyJoinTest {
             driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
         }
         // pass tuple with null key, it will be discarded in join process
-        //driver.process(topic2, null, "AnotherVal");
+        driver.process(topic2, null, "AThirdVal");
         driver.flushState();
 
         supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
