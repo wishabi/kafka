@@ -214,6 +214,7 @@ public class KTableKTableOneToManyJoinTest {
         for (int i = 12; i < 13; i++) {
             driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
         }
+        driver.flushState();
 
         supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
     }
