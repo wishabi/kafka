@@ -27,7 +27,7 @@ class CombinedKeyDeserializer<KL,KR> implements Deserializer<CombinedKey<KL,KR>>
 
     @Override
     public CombinedKey<KL, KR> deserialize(String topic, byte[] data) {
-        //{leftKeySerialized}{4-byte right length}{rightKeySerialized}{4-byte left length}
+        //{4-byte left length}{leftKeySerialized}{4-byte right length}{rightKeySerialized}
 
         byte[] leftCount = Arrays.copyOfRange(data,0,4);
         int leftKeyLength = fourBytesToInt(leftCount);

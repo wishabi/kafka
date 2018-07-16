@@ -60,6 +60,7 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
             //Wrap it in a combinedKey and let the serializer handle the prefixing.
             CombinedKey<KL,KR> prefixKey = new CombinedKey<>(key);
 
+
            final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
 
             while(rightValues.hasNext()){

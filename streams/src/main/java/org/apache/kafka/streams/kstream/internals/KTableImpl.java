@@ -40,6 +40,7 @@ import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeyLeftKeyPa
 import org.apache.kafka.streams.kstream.internals.onetomany.RepartitionedRightKeyValueGetterProviderAndProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
+import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.processor.StreamPartitioner;
 import org.apache.kafka.streams.processor.internals.InternalTopologyBuilder;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
@@ -958,9 +959,11 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         // The state store is named repartitionTopicName. It is populated by the right processor and read by the left processor.
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
         Materialized mat = Materialized.<CombinedKey<KL, KR>, VR>as(rdbs)
-                .withCachingDisabled()
+                .withCachingDisabled()  //Need all values to be immediately available in the rocksDB store. No easy way to flush cache prior to prefixScan.
                 .withKeySerde(combinedKeySerde)
                 .withValueSerde(otherValueSerde);
+
+        //TODO - Need to rdbs.get().flush(); before each prefix scan.
         MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> repartitionedRangeScannableStore =
                 new MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>(mat, builder, "SOMEFOO");
 
@@ -1025,6 +1028,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         asdf
             .toStream()
+            //TODO - Bellemare - add a filter here to filter out the "doNotPrint" elements
             .to(outputRepartitionSinkTopicName, Produced.with(otherKeySerde, joinedValueSerde));
 
         return builder.table(outputRepartitionSinkTopicName,
