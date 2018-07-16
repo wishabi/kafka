@@ -22,16 +22,19 @@ class PrintableWrapperDeserializer<V> implements Deserializer<PrintableWrapper<V
 
     @Override
     public PrintableWrapper<V> deserialize(String topic, byte[] data) {
-        //{4-byte value length}{value}{7-bits encoded boolean length}{1-bit}
-        byte[] count = Arrays.copyOfRange(data,0,4);
-        int offset = ByteBuffer.wrap(count).getInt();
-        byte[] rawVal = Arrays.copyOfRange(data,4,4+offset);
-        V value = deserializer.deserialize(topic, rawVal);
+        //{byte boolean, stored in bit 0}{4-byte value length}{value}
 
-        byte[] printableLengthRaw = Arrays.copyOfRange(data, 4+offset, 4+offset+1);
-
+        byte[] printableLengthRaw = Arrays.copyOfRange(data, 0, 1);
         BitSet bits = BitSet.valueOf(printableLengthRaw);
         boolean printable = bits.get(0);
+
+        V value = null;
+        if (data.length >= 5) {
+            byte[] count = Arrays.copyOfRange(data,1,5);
+            int offset = ByteBuffer.wrap(count).getInt();
+            byte[] rawVal = Arrays.copyOfRange(data,5,5+offset);
+            value = deserializer.deserialize(topic, rawVal);
+        }
 
         return new PrintableWrapper<>(value, printable);
     }

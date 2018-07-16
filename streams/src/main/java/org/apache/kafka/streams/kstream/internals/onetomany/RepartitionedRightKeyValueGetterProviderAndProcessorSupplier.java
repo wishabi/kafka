@@ -13,7 +13,8 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V> implements ProcessorSupplier<CombinedKey<KL,KR>, VR>
+public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V>
+        implements ProcessorSupplier<CombinedKey<KL,KR>, PrintableWrapper<VR>>
 {
 
     private final String topicName;
@@ -32,10 +33,10 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
 
 
     @Override
-    public Processor<CombinedKey<KL,KR>, VR> get()
+    public Processor<CombinedKey<KL,KR>, PrintableWrapper<VR>> get()
     {
 
-        return new AbstractProcessor<CombinedKey<KL,KR>, VR>()
+        return new AbstractProcessor<CombinedKey<KL,KR>, PrintableWrapper<VR>>()
         {
 
             KeyValueStore<CombinedKey<KL,KR>, VR> store;
@@ -51,22 +52,27 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
             }
 
             @Override
-            public void process(CombinedKey<KL,KR> key, VR value)
+            public void process(CombinedKey<KL,KR> key, PrintableWrapper<VR> value)
             {
+                //Immediately abort on non-printable. We don't want to propagate deleted data past this point.
+                if (!value.isPrintable()) {
+                    return;
+                }
+
                 VR oldVal = store.get(key);
-                store.put(key, value);
+                store.put(key, value.getElem());
 
                 V newValue = null;
                 V oldValue = null;
                 VL value2 = null;
 
-                if (value != null || oldVal != null) {
+                if (value.getElem() != null || oldVal != null) {
                     KL d = key.getLeftKey();
                     value2 = leftValues.get(d);
                 }
 
-                if (value != null && value2 != null)
-                    newValue = joiner.apply(value2, value);
+                if (value.getElem() != null && value2 != null)
+                    newValue = joiner.apply(value2, value.getElem());
 
                 if (oldVal != null && value2 != null)
                     oldValue = joiner.apply(value2, oldVal);

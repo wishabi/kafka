@@ -131,14 +131,17 @@ public class KTableKTableOneToManyJoinTest {
 
         byte[] result = pwSerde.serializer().serialize("someTopic", fooWrap);
         PrintableWrapper<String> unwrappedFoo = pwSerde.deserializer().deserialize("someTopic", result);
-
         System.out.println("elem = " + unwrappedFoo.getElem() + ", boolean = " + unwrappedFoo.isPrintable());
         System.out.println("elem = " + fooWrap.getElem() + ", boolean = " + fooWrap.isPrintable());
-
-
         assertEquals(unwrappedFoo.isPrintable(), fooWrap.isPrintable());
         assertEquals(unwrappedFoo.getElem(), fooWrap.getElem());
 
+        PrintableWrapper<String> nullWrap = new PrintableWrapper<>(null, true);
+
+        byte[] nullWrapResult = pwSerde.serializer().serialize("someTopic", nullWrap);
+        PrintableWrapper<String> someUnwrappedNullResult = pwSerde.deserializer().deserialize("someTopic", nullWrapResult);
+
+        System.out.println(someUnwrappedNullResult);
 
         joined = table1
                 .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
@@ -211,9 +214,6 @@ public class KTableKTableOneToManyJoinTest {
         for (int i = 12; i < 13; i++) {
             driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
         }
-        // pass tuple with null key, it will be discarded in join process
-        driver.process(topic2, null, "AThirdVal");
-        driver.flushState();
 
         supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
     }

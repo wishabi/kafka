@@ -37,10 +37,11 @@ import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeySerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableKTableRangeJoin;
 import org.apache.kafka.streams.kstream.internals.onetomany.KTableRepartitionerProcessorSupplier;
 import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeyLeftKeyPartitioner;
+import org.apache.kafka.streams.kstream.internals.onetomany.PrintableWrapper;
+import org.apache.kafka.streams.kstream.internals.onetomany.PrintableWrapperSerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.RepartitionedRightKeyValueGetterProviderAndProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
-import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.processor.StreamPartitioner;
 import org.apache.kafka.streams.processor.internals.InternalTopologyBuilder;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
@@ -930,17 +931,18 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         //Create a Serde for the Combined left and right key.
         CombinedKeySerde<KL, KR> combinedKeySerde = new CombinedKeySerde<>(thisKeySerde, otherKeySerde);
+        PrintableWrapperSerde<VR> printableWrapperSerde = new PrintableWrapperSerde<>(otherValueSerde);
 
         //Create the partitioner that will just partition on the left key.
-        CombinedKeyLeftKeyPartitioner<KL, KR, VR> partitioner = new CombinedKeyLeftKeyPartitioner<>(combinedKeySerde, repartitionTopicName);
+        CombinedKeyLeftKeyPartitioner<KL, KR, PrintableWrapper<VR>> partitioner = new CombinedKeyLeftKeyPartitioner<>(combinedKeySerde, repartitionTopicName);
 
         //Takes the results of the partitioner and sinks them to an internal topic, properly repartitioned according to the left foreign key.
         topology.addSink(repartitionSinkName, repartitionTopicName,
-                combinedKeySerde.serializer(), otherValueSerde.serializer(),
+                combinedKeySerde.serializer(), printableWrapperSerde.serializer(),
                 partitioner, repartitionProcessorName);
 
         //Re-read partitioned topic, copartitioned with the left table keys.
-        topology.addSource(null, repartitionSourceName, new FailOnInvalidTimestamp(), combinedKeySerde.deserializer(), otherValueSerde.deserializer(), repartitionTopicName);
+        topology.addSource(null, repartitionSourceName, new FailOnInvalidTimestamp(), combinedKeySerde.deserializer(), printableWrapperSerde.deserializer(), repartitionTopicName);
 
         //This is the right side's processor. It does two main things:
         // 1) Loads the data into a stateStore, to be accessed by the KTableKTableRangeJoin processor (the left side's processor).
@@ -969,6 +971,49 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         //This connects the right processor with the state store in the topology.
         topology.addStateStore(new KeyValueStoreMaterializer<>(repartitionedRangeScannableStore).materialize(), joinOnThisTableName);
+
+
+        //TODO - REjig the right. Start
+        //DONE - Filter out printable=false.
+        //DONE - mapValues to unwrap the PrintableWrapper
+
+
+
+//        // Repartition on right key.
+//        // Data is already keyed on right key, but not partitioned on right key.
+//        String postJoinRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
+//        final String postJoinRepartitionerTopicName = name + "-" + JOINOTHER_NAME;
+//
+//        topology.addInternalTopic(repartitionTopicName);
+//        final String postJoinRepartitionProcessorName = postJoinRepartitionerName + "-" + SELECT_NAME;
+//        final String postJoinRepartitionSourceName = postJoinRepartitionerName + "-source";
+//        final String postJoinRepartitionSinkName = postJoinRepartitionerName + "-sink";
+//        final String postJoinOnThisTableName = postJoinRepartitionerName + "-table";
+//
+//        //TODO - Perhaps I can get rid of the Object... since I don't need the value at all except for an internal function call.
+//        RightKeyPartitioner<KR, Object> rightKeyPartitioner = new RightKeyPartitioner<>(otherKeySerde, postJoinRepartitionerTopicName);
+//
+//
+//
+//        // Sink to topic.
+//        topology.addSink(postJoinRepartitionSinkName, postJoinRepartitionerTopicName,
+//                otherKeySerde.serializer(), otherValueSerde.serializer(),
+//                rightKeyPartitioner, postJoinRepartitionProcessorName);
+//
+//        // Source from topic
+//        topology.addSource(null, postJoinRepartitionSourceName, new FailOnInvalidTimestamp(), otherKeySerde.deserializer(), otherValueSerde.deserializer(), postJoinRepartitionerTopicName);
+//
+
+
+        // Wrap in a KTableSource
+
+        //Remaining topology should be like the regular innerJoin.
+        //TODO - REjig the right. End
+
+
+
+
+
 
         //Performs Left-driven updates (ie: new One, updates the Many).
         //Produces with the Real Key.
