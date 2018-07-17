@@ -42,8 +42,10 @@ import org.apache.kafka.streams.kstream.internals.onetomany.PrintableWrapperSerd
 import org.apache.kafka.streams.kstream.internals.onetomany.RepartitionedRightKeyValueGetterProviderAndProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
+import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.processor.StreamPartitioner;
 import org.apache.kafka.streams.processor.internals.InternalTopologyBuilder;
+import org.apache.kafka.streams.processor.internals.ProcessorStateManager;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.StoreBuilder;
@@ -960,10 +962,15 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         // The RepartitionedRightKeyValueGetterProviderAndProcessorSupplier accesses it via the repartitionTopicName handle.
         // The state store is named repartitionTopicName. It is populated by the right processor and read by the left processor.
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
-        Materialized mat = Materialized.<CombinedKey<KL, KR>, VR>as(rdbs)
+        StateStore localSSRef = rdbs.get();
+        localSSRef.name();
+
+        Materialized mat = Materialized.<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>as(localSSRef.name())
                 .withCachingDisabled()  //Need all values to be immediately available in the rocksDB store. No easy way to flush cache prior to prefixScan.
                 .withKeySerde(combinedKeySerde)
                 .withValueSerde(otherValueSerde);
+
+
 
         //TODO - Need to rdbs.get().flush(); before each prefix scan.
         MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> repartitionedRangeScannableStore =
@@ -1019,7 +1026,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Produces with the Real Key.
         KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinOnThisTable.valueGetterSupplier();
         KTableKTableRangeJoin<KL, KR, VL, VR, V0> joinByRange
-                = new KTableKTableRangeJoin<>(f, joiner);
+                = new KTableKTableRangeJoin<>(f, joiner, localSSRef); //TODO - add localSSRef here
+
         //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
 
@@ -1042,7 +1050,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Connect the left processor to the to the left valueGetter (state store or predecessor processor)
         //Connect the right processor to the repartitionedRangeScannableStore.
         topology.connectProcessorAndStateStores(joinOnThisTableName, valueGetterSupplier().storeNames());
-        topology.connectProcessorAndStateStores(joinByRangeName, repartitionedRangeScannableStore.storeSupplier().get().name());
+        topology.connectProcessorAndStateStores(joinByRangeName, localSSRef.name());
 
         //Ensure that the repartitionedSource and the sourceNodes from this table are correctly co-partitioned.
         //If they are not, this will ensure that they are repartitioned into the size of the largest partition count,

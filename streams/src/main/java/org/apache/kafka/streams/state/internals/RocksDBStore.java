@@ -389,7 +389,7 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
     }
 
     @Override
-    public KeyValueIterator<K, V> prefixScan(K prefix) {
+    public synchronized KeyValueIterator<K, V> prefixScan(K prefix) {
         Objects.requireNonNull(prefix, "prefix cannot be null");
         validateStoreOpen();
         // query rocksdb

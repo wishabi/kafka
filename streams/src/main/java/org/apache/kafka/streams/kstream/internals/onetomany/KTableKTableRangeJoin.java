@@ -11,6 +11,7 @@ import org.apache.kafka.streams.processor.AbstractProcessor;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
+import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.state.KeyValueIterator;
 
 
@@ -18,13 +19,16 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
 
 	private ValueJoiner<VL, VR, V> joiner;
 	private KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right;
+	private final StateStore ref;
 
     //Performs Left-driven updates (ie: new One, updates the Many).
     public KTableKTableRangeJoin(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right,
-                                 ValueJoiner<VL, VR, V> joiner){
+                                 ValueJoiner<VL, VR, V> joiner,
+                                 StateStore ref){
 
     	this.right = right;
         this.joiner = joiner;
+        this.ref = ref;
     }
 
 	@Override
@@ -60,8 +64,9 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
             //Wrap it in a combinedKey and let the serializer handle the prefixing.
             CombinedKey<KL,KR> prefixKey = new CombinedKey<>(key);
 
-
-           final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
+            //Flush the foreign state store, as we need all elements to be flushed for a proper range scan.
+            ref.flush();
+            final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
 
             while(rightValues.hasNext()){
                   KeyValue<CombinedKey<KL,KR>, VR> rightKeyValue = rightValues.next();
