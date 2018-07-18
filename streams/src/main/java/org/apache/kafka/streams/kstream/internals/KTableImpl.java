@@ -16,6 +16,7 @@
  */
 package org.apache.kafka.streams.kstream.internals;
 
+import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.Consumed;
@@ -44,6 +45,7 @@ import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.processor.StreamPartitioner;
+import org.apache.kafka.streams.processor.internals.DefaultStreamPartitioner;
 import org.apache.kafka.streams.processor.internals.InternalTopologyBuilder;
 import org.apache.kafka.streams.processor.internals.ProcessorStateManager;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
@@ -986,6 +988,45 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
+
+
+
+
+        PrintableWrapperSerde<V0> joinedWrappedSerde = new PrintableWrapperSerde<>(joinedValueSerde);
+
+        ChangedSerializer cs = new ChangedSerializer<>(joinedWrappedSerde.serializer());
+        ChangedDeserializer cds = new ChangedDeserializer<>(joinedWrappedSerde.deserializer());
+
+        //1) Wrap processor outputs in PrintableWrappers.
+
+        //2) Sink both to common topic
+        //Takes the results of the partitioner and sinks them to an internal topic, properly repartitioned according to the left foreign key.
+
+        String finalRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
+        final String finalRepartitionTopicName = name + "-" + JOINOTHER_NAME;
+        topology.addInternalTopic(finalRepartitionTopicName);
+        final String finalRepartitionProcessorName = finalRepartitionerName + "-" + SELECT_NAME;
+        final String finalRepartitionSourceName = finalRepartitionerName + "-source";
+        final String finalRepartitionSinkName = finalRepartitionerName + "-sink";
+        final String fnalJoinOnThisTableName = finalRepartitionerName + "-table";
+        ;
+        topology.addSink(finalRepartitionSinkName, finalRepartitionTopicName,
+                otherKeySerde.serializer(), cs,
+                new DefaultStreamPartitioner(), repartitionProcessorName);
+
+        //3) Create Processor that reads from common topic.
+        //  - need to know the right side of the processor, so I can correctly apply the offset filtering on right-side elements.
+        //  - need offset management store for determining if out of order update should be used.
+        //  - need materialized store for the user.
+
+
+
+
+
+
+
+
+
 
         //Join the left and the right outputs together into a new table.
         KTableImpl<KR, V, V0> myThis = new KTableImpl<>(builder, joinOnThisTableName, joinOnThisTable, sourceNodes, this.queryableStoreName, false);

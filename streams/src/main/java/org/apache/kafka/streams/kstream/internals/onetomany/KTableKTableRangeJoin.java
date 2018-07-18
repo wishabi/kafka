@@ -83,6 +83,8 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
                       newValue = joiner.apply(leftChange.newValue, value2);
                   }
 
+                  //TODO - Propagate a PrintableWrapper from here too - don't care about the offset. Everything needs to be printable.
+                  //This is just to allow for easy sinking to the same topic as
                   context().forward(realKey, new Change<>(newValue, oldValue));
             }
         }

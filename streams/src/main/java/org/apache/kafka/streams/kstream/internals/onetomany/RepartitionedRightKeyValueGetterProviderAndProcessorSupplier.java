@@ -54,7 +54,8 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
             @Override
             public void process(CombinedKey<KL,KR> key, PrintableWrapper<VR> value)
             {
-                //Immediately abort on non-printable. We don't want to propagate deleted data past this point.
+                //Immediately abort on non-printable. We don't want to propagate a null due to a foreign-key change past this point.
+                //Propagation of the updated value will occur in a different partition.
                 if (!value.isPrintable()) {
                     return;
                 }
@@ -79,6 +80,7 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
 
                 if(oldValue != null || newValue != null) {
                     KR realKey = key.getRightKey();
+                    //TODO - Propagate a PrintableWrapper change.
                     context().forward(realKey, new Change<>(newValue, oldValue));
                 }
             }
