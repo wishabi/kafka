@@ -969,55 +969,11 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 .withCachingDisabled()  //Need all values to be immediately available in the rocksDB store. No easy way to flush cache prior to prefixScan.
                 .withKeySerde(combinedKeySerde)
                 .withValueSerde(otherValueSerde);
-
-
-
-        //TODO - Need to rdbs.get().flush(); before each prefix scan.
         MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>> repartitionedRangeScannableStore =
                 new MaterializedInternal<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>(mat, builder, "SOMEFOO");
 
         //This connects the right processor with the state store in the topology.
         topology.addStateStore(new KeyValueStoreMaterializer<>(repartitionedRangeScannableStore).materialize(), joinOnThisTableName);
-
-
-        //TODO - REjig the right. Start
-        //DONE - Filter out printable=false.
-        //DONE - mapValues to unwrap the PrintableWrapper
-
-
-
-//        // Repartition on right key.
-//        // Data is already keyed on right key, but not partitioned on right key.
-//        String postJoinRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
-//        final String postJoinRepartitionerTopicName = name + "-" + JOINOTHER_NAME;
-//
-//        topology.addInternalTopic(repartitionTopicName);
-//        final String postJoinRepartitionProcessorName = postJoinRepartitionerName + "-" + SELECT_NAME;
-//        final String postJoinRepartitionSourceName = postJoinRepartitionerName + "-source";
-//        final String postJoinRepartitionSinkName = postJoinRepartitionerName + "-sink";
-//        final String postJoinOnThisTableName = postJoinRepartitionerName + "-table";
-//
-//        //TODO - Perhaps I can get rid of the Object... since I don't need the value at all except for an internal function call.
-//        RightKeyPartitioner<KR, Object> rightKeyPartitioner = new RightKeyPartitioner<>(otherKeySerde, postJoinRepartitionerTopicName);
-//
-//
-//
-//        // Sink to topic.
-//        topology.addSink(postJoinRepartitionSinkName, postJoinRepartitionerTopicName,
-//                otherKeySerde.serializer(), otherValueSerde.serializer(),
-//                rightKeyPartitioner, postJoinRepartitionProcessorName);
-//
-//        // Source from topic
-//        topology.addSource(null, postJoinRepartitionSourceName, new FailOnInvalidTimestamp(), otherKeySerde.deserializer(), otherValueSerde.deserializer(), postJoinRepartitionerTopicName);
-//
-
-
-        // Wrap in a KTableSource
-
-        //Remaining topology should be like the regular innerJoin.
-        //TODO - REjig the right. End
-
-
 
 
 
@@ -1026,7 +982,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Produces with the Real Key.
         KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinOnThisTable.valueGetterSupplier();
         KTableKTableRangeJoin<KL, KR, VL, VR, V0> joinByRange
-                = new KTableKTableRangeJoin<>(f, joiner, localSSRef); //TODO - add localSSRef here
+                = new KTableKTableRangeJoin<>(f, joiner, localSSRef);
 
         //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
