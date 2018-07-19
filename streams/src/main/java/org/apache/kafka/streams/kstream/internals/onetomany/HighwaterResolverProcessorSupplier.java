@@ -25,7 +25,7 @@ public class HighwaterResolverProcessorSupplier<KR, V>
     {
         return new AbstractProcessor<KR, Change<PropagationWrapper<V>>>()
         {
-            KeyValueStore<KR, Long> offsetHighWaterStore;
+            private KeyValueStore<KR, Long> offsetHighWaterStore;
 
             @Override
             public void init(ProcessorContext context)
@@ -39,16 +39,15 @@ public class HighwaterResolverProcessorSupplier<KR, V>
             {
                 //highwater = X, value(offset = x+1, null)      => update & send
                 //highwater = X, value(offset = x+1, non-null)  => update & send
-                //highwater = X, value(offset = x, null)        => Should not occur, as nulls are dropped previously in workflow
-                //highwater = X, value(offset = x, non-null)    => Should not occur, as same -offset only exists as above.
-                //highwater = X, value(offset = x-1, null)      => Do not send
-                //highwater = X, value(offset = x-1, non-null)  => Do not send
+                //highwater = X, value(offset = x, null)        => May occur if there is a system failure and we are restoring.
+                //highwater = X, value(offset = x, non-null)    => May occur if there is a system failure and we are restoring.
+                //highwater = X, value(offset = x-1, null)      => Do not send, it is an out-of-order, old update.
+                //highwater = X, value(offset = x-1, non-null)  => Do not send, it is an out-of-order, old update.
 
                 final Long highwater = offsetHighWaterStore.get(key);
                 if (null == highwater || value.newValue.getOffset() >= highwater ) {
-                    // > as its new highwater
-                    // = as we want to resend in the case of a node failure, but only if it's not null.
-                    //System.out.println("Highwater mark = " + highwater + ", value.newValue = " + value.newValue.getElem().toString());
+                    // using greater-than to capture new highwater events.
+                    // using equal as we want to resend in the case of a node failure.
                     offsetHighWaterStore.put(key, value.newValue.getOffset());
                     context().forward(key, new Change<>(value.newValue.getElem(), null));
                 } else if (value.newValue.getOffset() == -1 ) {

@@ -25,7 +25,7 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
     @Override
     public byte[] serialize(String topic, CombinedKey<KL, KR> data) {
-        //{4-byte leftSize}{left-serialized}{4-byte rightSize}{4-byte right-serialized}
+        //{4-byte left length}{leftKeySerialized}{4-byte right length}{rightKeySerialized}
 
         //? bytes
         byte[] leftSerializedData = leftSerializer.serialize(topic, data.getLeftKey());

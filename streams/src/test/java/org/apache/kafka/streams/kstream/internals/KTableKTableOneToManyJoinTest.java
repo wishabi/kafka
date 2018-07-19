@@ -129,8 +129,6 @@ public class KTableKTableOneToManyJoinTest {
 
         byte[] result = pwSerde.serializer().serialize("someTopic", fooWrap);
         PropagationWrapper<String> unwrappedFoo = pwSerde.deserializer().deserialize("someTopic", result);
-        System.out.println("elem = " + unwrappedFoo.getElem() + ", boolean = " + unwrappedFoo.isPrintable());
-        System.out.println("elem = " + fooWrap.getElem() + ", boolean = " + fooWrap.isPrintable());
         assertEquals(unwrappedFoo.isPrintable(), fooWrap.isPrintable());
         assertEquals(unwrappedFoo.getElem(), fooWrap.getElem());
 
@@ -138,8 +136,6 @@ public class KTableKTableOneToManyJoinTest {
 
         byte[] nullWrapResult = pwSerde.serializer().serialize("someTopic", nullWrap);
         PropagationWrapper<String> someUnwrappedNullResult = pwSerde.deserializer().deserialize("someTopic", nullWrapResult);
-
-        System.out.println(someUnwrappedNullResult);
 
         joined = table1
                 .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
@@ -166,15 +162,7 @@ public class KTableKTableOneToManyJoinTest {
 
         final Collection<Set<String>> copartitionGroups = StreamsBuilderTest.getCopartitionedGroups(builder);
 
-        //This ensures that there is a copartition between the repartitioned right table and the left table.
-
-        Iterator f = copartitionGroups.iterator();
-        while (f.hasNext())
-            System.out.println(f.next());
-
-        //assertEquals(1, copartitionGroups.size());
-
-
+        assertEquals(2, copartitionGroups.size());
 
         final KTableValueGetterSupplier<String, String> getterSupplier = ((KTableImpl<String, String, String>) joined).valueGetterSupplier();
 

@@ -9,7 +9,7 @@ import org.apache.kafka.streams.processor.ProcessorSupplier;
 
 public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements ProcessorSupplier<KR, Change<VR>> {
 
-	private ValueMapper<VR, KL> mapper;
+	private final ValueMapper<VR, KL> mapper;
 
 	public KTableRepartitionerProcessorSupplier(ValueMapper<VR,KL> extractor) {
 		this.mapper = extractor;
@@ -39,20 +39,8 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 				{
 					KL extractedNewLeftKey = mapper.apply(change.newValue);
 					CombinedKey<KL, KR> combinedNewKey = new CombinedKey<>(extractedNewLeftKey, key);
-					// This is a more tricky story 
-					// I only want KR to be key of the new partition.
 
-					// this wont work as we cant get a grab on the number of
-					// partitions of the intermediate topic here
-					// therefore the extractor/leftKeyExtractor has to extract the final K here already
-					// so we can savely publish a delete and the update
-
-					// we could skip the delete when we know we are in the same partition
-					// and dealing with the same KR and end up in the same partition
-
-					// IF they key equals, the intermediate key will equal which is used
-					// to derive the partition
-                    //TODO - How do I know they're equal?
+					//TODO - Requires equal to be defined. If not defined, should still resolve to same in the else-statement.
 					if(leftOldKey.equals(extractedNewLeftKey))
 					{
 					    //Same foreign key. Just propagate onwards.
@@ -61,6 +49,9 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 					else  
 					{
 					    //Different Foreign Key - delete the old key value and propagate the new one.
+                        //Note that we indicate that we don't want to propagate the delete to the join output. It is set to false.
+                        //This will be used by a downstream processor to delete it from the local state store, but not propagate it
+                        //as a full delete. This avoids a race condition in the resolution of the output.
 						context().forward(combinedOldKey, new PropagationWrapper<>(change.newValue, false, context().offset()));
 						context().forward(combinedNewKey, new PropagationWrapper<>(change.newValue, true, context().offset()));
 					}
@@ -87,6 +78,5 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 
 		@Override
 		public void close() {}
-		
 	}
 }

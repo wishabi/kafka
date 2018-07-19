@@ -16,8 +16,8 @@ import org.apache.kafka.streams.state.KeyValueIterator;
 
 public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSupplier<KL, Change<VL>> {
 
-	private ValueJoiner<VL, VR, V> joiner;
-	private KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right;
+	private final ValueJoiner<VL, VR, V> joiner;
+	private final KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right;
 	private final StateStore ref;
 
     //Performs Left-driven updates (ie: new One, updates the Many).
@@ -38,7 +38,7 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
 
     private class KTableKTableJoinProcessor extends AbstractProcessor<KL, Change<VL>> {
 
-		private KTableRangeValueGetter<CombinedKey<KL,KR>,VR> rightValueGetter;
+		private final KTableRangeValueGetter<CombinedKey<KL,KR>,VR> rightValueGetter;
 
         public KTableKTableJoinProcessor(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right) {
             this.rightValueGetter = right.get();
@@ -81,10 +81,7 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
                   if (leftChange.newValue != null){
                       newValue = joiner.apply(leftChange.newValue, value2);
                   }
-
-                  //TODO - Propagate a PrintableWrapper from here too - don't care about the offset. Everything needs to be printable.
-                  //This is just to allow for easy sinking to the same topic as
-                  //TODO - Probably rework this so that it's a different wrapper. We don't need the printable part anymore...
+                  //TODO - Possibly rework this so that it's a different wrapper. We don't need the printable part anymore, but it's annoying to have to create another nearly-the-same class.
                   //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
                   PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, -1);
                   PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, -1);

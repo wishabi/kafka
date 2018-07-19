@@ -38,8 +38,8 @@ public class RightSideProcessorSupplier<KL,KR, VL, VR, V>
         return new AbstractProcessor<CombinedKey<KL,KR>, PropagationWrapper<VR>>()
         {
 
-            KeyValueStore<CombinedKey<KL,KR>, VR> store;
-            KTableValueGetter<KL, VL> leftValues;
+            private KeyValueStore<CombinedKey<KL,KR>, VR> store;
+            private KTableValueGetter<KL, VL> leftValues;
 
             @Override
             public void init(ProcessorContext context)
@@ -79,7 +79,6 @@ public class RightSideProcessorSupplier<KL,KR, VL, VR, V>
 
                 if(oldValue != null || newValue != null) {
                     KR realKey = key.getRightKey();
-                    //TODO - Propagate a PrintableWrapper change.
                     //Use the offset of the original element, as it represents the original order of the now
                     //foreign-keyed data. This is used upon resolution of conflicts when everything is repartitioned back.
                     PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, value.getOffset());

@@ -7,8 +7,8 @@ import org.apache.kafka.streams.processor.StreamPartitioner;
 
 public class RightKeyPartitioner<KR,V> implements StreamPartitioner<KR, V> {
 
-	private Serializer<KR> keySerializer;
-	private String topic;
+	private final Serializer<KR> keySerializer;
+	private final String topic;
 
 	public RightKeyPartitioner(Serde<KR> keySerde, String topic){
 		this.keySerializer = keySerde.serializer();
