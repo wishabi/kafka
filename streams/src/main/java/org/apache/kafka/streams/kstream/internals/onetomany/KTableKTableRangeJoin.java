@@ -3,7 +3,6 @@ package org.apache.kafka.streams.kstream.internals.onetomany;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.errors.StreamsException;
 import org.apache.kafka.streams.kstream.ValueJoiner;
-import org.apache.kafka.streams.kstream.ValueMapper;
 import org.apache.kafka.streams.kstream.internals.Change;
 import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetter;
 import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetterSupplier;
@@ -87,8 +86,8 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
                   //This is just to allow for easy sinking to the same topic as
                   //TODO - Probably rework this so that it's a different wrapper. We don't need the printable part anymore...
                   //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
-                  PrintableWrapper<V> newWrappedVal = new PrintableWrapper<>(newValue, true, -1);
-                  PrintableWrapper<V> oldWrappedVal = new PrintableWrapper<>(oldValue, true, -1);
+                  PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, -1);
+                  PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, -1);
                   context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
             }
         }

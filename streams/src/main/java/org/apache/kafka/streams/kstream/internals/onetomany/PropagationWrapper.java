@@ -1,12 +1,12 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
-public class PrintableWrapper<T> {
+public class PropagationWrapper<T> {
 
     private final T elem;
     private final boolean printable;
     private final long offset;
 
-    public PrintableWrapper(T elem, boolean printable, long offset) {
+    public PropagationWrapper(T elem, boolean printable, long offset) {
         this.elem = elem;
         this.printable = printable;
         this.offset = offset;

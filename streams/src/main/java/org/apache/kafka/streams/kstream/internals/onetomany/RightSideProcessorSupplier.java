@@ -1,6 +1,5 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
-import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.streams.kstream.ValueJoiner;
 import org.apache.kafka.streams.kstream.internals.Change;
 import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetterSupplier;
@@ -13,8 +12,8 @@ import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR, VL, VR, V>
-        implements ProcessorSupplier<CombinedKey<KL,KR>, PrintableWrapper<VR>>
+public class RightSideProcessorSupplier<KL,KR, VL, VR, V>
+        implements ProcessorSupplier<CombinedKey<KL,KR>, PropagationWrapper<VR>>
 {
 
     private final String topicName;
@@ -22,9 +21,9 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
     private final ValueJoiner<VL, VR, V> joiner;
 
     //Right driven updates
-    public RepartitionedRightKeyValueGetterProviderAndProcessorSupplier(String topicName,
-                                                                        KTableValueGetterSupplier<KL, VL> leftValueGetter ,
-                                                                        ValueJoiner<VL, VR, V> joiner)
+    public RightSideProcessorSupplier(String topicName,
+                                      KTableValueGetterSupplier<KL, VL> leftValueGetter ,
+                                      ValueJoiner<VL, VR, V> joiner)
     {
         this.topicName = topicName;
         this.joiner = joiner;
@@ -33,10 +32,10 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
 
 
     @Override
-    public Processor<CombinedKey<KL,KR>, PrintableWrapper<VR>> get()
+    public Processor<CombinedKey<KL,KR>, PropagationWrapper<VR>> get()
     {
 
-        return new AbstractProcessor<CombinedKey<KL,KR>, PrintableWrapper<VR>>()
+        return new AbstractProcessor<CombinedKey<KL,KR>, PropagationWrapper<VR>>()
         {
 
             KeyValueStore<CombinedKey<KL,KR>, VR> store;
@@ -52,7 +51,7 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
             }
 
             @Override
-            public void process(CombinedKey<KL,KR> key, PrintableWrapper<VR> value)
+            public void process(CombinedKey<KL,KR> key, PropagationWrapper<VR> value)
             {
                 //Immediately abort on non-printable. We don't want to propagate a null due to a foreign-key change past this point.
                 //Propagation of the updated value will occur in a different partition.
@@ -83,8 +82,8 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
                     //TODO - Propagate a PrintableWrapper change.
                     //Use the offset of the original element, as it represents the original order of the now
                     //foreign-keyed data. This is used upon resolution of conflicts when everything is repartitioned back.
-                    PrintableWrapper<V> newWrappedVal = new PrintableWrapper<>(newValue, true, value.getOffset());
-                    PrintableWrapper<V> oldWrappedVal = new PrintableWrapper<>(oldValue, true, value.getOffset());
+                    PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, value.getOffset());
+                    PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, value.getOffset());
                     context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
                 }
             }

@@ -1,31 +1,29 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
 import org.apache.kafka.streams.kstream.internals.Change;
-import org.apache.kafka.streams.kstream.internals.KTableRangeValueGetterSupplier;
-import org.apache.kafka.streams.kstream.internals.KTableSourceValueGetterSupplier;
 import org.apache.kafka.streams.processor.AbstractProcessor;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-public class WrapperResolverProcessorSupplier<KR, V>
-        implements ProcessorSupplier<KR, Change<PrintableWrapper<V>>>
+public class HighwaterResolverProcessorSupplier<KR, V>
+        implements ProcessorSupplier<KR, Change<PropagationWrapper<V>>>
 {
 
     private final String stateStoreName;
 
     //Right driven updates
-    public WrapperResolverProcessorSupplier(String stateStoreName)
+    public HighwaterResolverProcessorSupplier(String stateStoreName)
     {
         this.stateStoreName = stateStoreName;
     }
 
 
     @Override
-    public Processor<KR, Change<PrintableWrapper<V>>> get()
+    public Processor<KR, Change<PropagationWrapper<V>>> get()
     {
-        return new AbstractProcessor<KR, Change<PrintableWrapper<V>>>()
+        return new AbstractProcessor<KR, Change<PropagationWrapper<V>>>()
         {
             KeyValueStore<KR, Long> offsetHighWaterStore;
 
@@ -37,7 +35,7 @@ public class WrapperResolverProcessorSupplier<KR, V>
             }
 
             @Override
-            public void process(KR key, Change<PrintableWrapper<V>> value)
+            public void process(KR key, Change<PropagationWrapper<V>> value)
             {
                 //highwater = X, value(offset = x+1, null)      => update & send
                 //highwater = X, value(offset = x+1, non-null)  => update & send

@@ -8,11 +8,11 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Map;
 
-class PrintableWrapperDeserializer<V> implements Deserializer<PrintableWrapper<V>> {
+class PropagationWrapperDeserializer<V> implements Deserializer<PropagationWrapper<V>> {
 
     private final Deserializer<V> deserializer;
 
-    public PrintableWrapperDeserializer(Deserializer<V> deserializer) {
+    public PropagationWrapperDeserializer(Deserializer<V> deserializer) {
         this.deserializer = deserializer;
     }
 
@@ -22,13 +22,10 @@ class PrintableWrapperDeserializer<V> implements Deserializer<PrintableWrapper<V
     }
 
     @Override
-    public PrintableWrapper<V> deserialize(String topic, byte[] data) {
+    public PropagationWrapper<V> deserialize(String topic, byte[] data) {
         //{8-bytes offset}{byte boolean, stored in bit 0}{4-byte value length}{value}
-
         byte[] offsetRaw = Arrays.copyOfRange(data, 0, 8);
         long offset = Serdes.Long().deserializer().deserialize(topic, offsetRaw);
-
-        System.out.println("deserialized offset = " + offset);
 
         byte[] printableLengthRaw = Arrays.copyOfRange(data, 8, 9);
         BitSet bits = BitSet.valueOf(printableLengthRaw);
@@ -41,7 +38,7 @@ class PrintableWrapperDeserializer<V> implements Deserializer<PrintableWrapper<V
             byte[] rawVal = Arrays.copyOfRange(data,13,13+rawValLength);
             value = deserializer.deserialize(topic, rawVal);
         }
-        return new PrintableWrapper<>(value, printable, offset);
+        return new PropagationWrapper<>(value, printable, offset);
     }
 
     @Override

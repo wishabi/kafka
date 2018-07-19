@@ -25,25 +25,30 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
 
     @Override
     public byte[] serialize(String topic, CombinedKey<KL, KR> data) {
+        //{4-byte leftSize}{left-serialized}{4-byte rightSize}{4-byte right-serialized}
+
+        //? bytes
         byte[] leftSerializedData = leftSerializer.serialize(topic, data.getLeftKey());
+        //4 bytes
         byte[] leftSize = numToBytes(leftSerializedData.length);
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            output.write(leftSize);
-            output.write(leftSerializedData);
-            if (data.getRightKey() != null) {
-                byte[] rightSerializedData = rightSerializer.serialize(topic, data.getRightKey());
-                byte[] rightSize = numToBytes(rightSerializedData.length);
-                output.write(rightSize);
-                output.write(rightSerializedData);
-            }
-        } catch (IOException e){
-            //TODO - Bellemare - yech. Handle the IO exception without passing it up.. ha.
-            //System.out.println("IOException while handling serialization of CombinedKey " + e.toString());
+        if (data.getRightKey() != null) {
+            //? bytes
+            byte[] rightSerializedData = rightSerializer.serialize(topic, data.getRightKey());
+            //4 bytes
+            byte[] rightSize = numToBytes(rightSerializedData.length);
+            byte[] total = new byte[8 + leftSerializedData.length + rightSerializedData.length];
+            System.arraycopy(leftSize, 0, total, 0, 4);
+            System.arraycopy(leftSerializedData, 0, total, 4, leftSerializedData.length);
+            System.arraycopy(rightSize, 0, total, 4+leftSerializedData.length, 4);
+            System.arraycopy(rightSerializedData, 0, total, 8+leftSerializedData.length, rightSerializedData.length);
+            return total;
+        } else {
+            byte[] total = new byte[4 + leftSerializedData.length];
+            System.arraycopy(leftSize, 0, total, 0, 4);
+            System.arraycopy(leftSerializedData, 0, total, 4, leftSerializedData.length);
+            return total;
         }
-
-        return output.toByteArray();
     }
 
     private byte[] numToBytes(int num){
