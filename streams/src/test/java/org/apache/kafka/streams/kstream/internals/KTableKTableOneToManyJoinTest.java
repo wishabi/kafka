@@ -127,7 +127,7 @@ public class KTableKTableOneToManyJoinTest {
 
 
         PrintableWrapperSerde<String> pwSerde = new PrintableWrapperSerde(Serdes.String());
-        PrintableWrapper<String> fooWrap = new PrintableWrapper<>("my string", true);
+        PrintableWrapper<String> fooWrap = new PrintableWrapper<>("my string", true, 100L);
 
         byte[] result = pwSerde.serializer().serialize("someTopic", fooWrap);
         PrintableWrapper<String> unwrappedFoo = pwSerde.deserializer().deserialize("someTopic", result);
@@ -136,7 +136,7 @@ public class KTableKTableOneToManyJoinTest {
         assertEquals(unwrappedFoo.isPrintable(), fooWrap.isPrintable());
         assertEquals(unwrappedFoo.getElem(), fooWrap.getElem());
 
-        PrintableWrapper<String> nullWrap = new PrintableWrapper<>(null, true);
+        PrintableWrapper<String> nullWrap = new PrintableWrapper<>(null, true, 100L);
 
         byte[] nullWrapResult = pwSerde.serializer().serialize("someTopic", nullWrap);
         PrintableWrapper<String> someUnwrappedNullResult = pwSerde.deserializer().deserialize("someTopic", nullWrapResult);

@@ -85,7 +85,11 @@ public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSuppli
 
                   //TODO - Propagate a PrintableWrapper from here too - don't care about the offset. Everything needs to be printable.
                   //This is just to allow for easy sinking to the same topic as
-                  context().forward(realKey, new Change<>(newValue, oldValue));
+                  //TODO - Probably rework this so that it's a different wrapper. We don't need the printable part anymore...
+                  //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
+                  PrintableWrapper<V> newWrappedVal = new PrintableWrapper<>(newValue, true, -1);
+                  PrintableWrapper<V> oldWrappedVal = new PrintableWrapper<>(oldValue, true, -1);
+                  context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
             }
         }
     }

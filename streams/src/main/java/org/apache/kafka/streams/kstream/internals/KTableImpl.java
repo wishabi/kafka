@@ -18,6 +18,7 @@ package org.apache.kafka.streams.kstream.internals;
 
 import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.Consumed;
 import org.apache.kafka.streams.KeyValue;
@@ -41,6 +42,8 @@ import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeyLeftKeyPa
 import org.apache.kafka.streams.kstream.internals.onetomany.PrintableWrapper;
 import org.apache.kafka.streams.kstream.internals.onetomany.PrintableWrapperSerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.RepartitionedRightKeyValueGetterProviderAndProcessorSupplier;
+import org.apache.kafka.streams.kstream.internals.onetomany.RightKeyPartitioner;
+import org.apache.kafka.streams.kstream.internals.onetomany.WrapperResolverProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 import org.apache.kafka.streams.processor.StateStore;
@@ -57,6 +60,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -831,6 +835,10 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
             return new KTableSourceValueGetterSupplier<>(source.storeName);
         } else if (processorSupplier instanceof KStreamAggProcessorSupplier) {
             return ((KStreamAggProcessorSupplier<?, K, S, V>) processorSupplier).view();
+        } else if (processorSupplier instanceof WrapperResolverProcessorSupplier) {
+            //TODO - Bellemare - figure out if this should be the case or if it should be a full KTableProcessorSupplier (I think it needs a materialized state store if so...)
+            return null;
+            //return ((WrapperResolverProcessorSupplier<K,V>) processorSupplier).view();
         } else {
             return ((KTableProcessorSupplier<K, S, V>) processorSupplier).view();
         }
@@ -844,6 +852,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 source.enableSendingOldValues();
             } else if (processorSupplier instanceof KStreamAggProcessorSupplier) {
                 ((KStreamAggProcessorSupplier<?, K, S, V>) processorSupplier).enableSendingOldValues();
+            } else if (processorSupplier instanceof WrapperResolverProcessorSupplier) {
+                //TODO - Bellemare resolve this.
             } else {
                 ((KTableProcessorSupplier<K, S, V>) processorSupplier).enableSendingOldValues();
             }
@@ -888,6 +898,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 joiner,
                 joinMergeName,
                 materialized,
+                internalQueryableName,
                 thisKeySerde,
                 otherKeySerde,
                 otherValueSerde,
@@ -906,6 +917,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                                                                final ValueJoiner<VL, VR, V0> joiner,
                                                                final String joinMergeName,
                                                                final MaterializedInternal<KR, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                               final String internalQueryableName,
                                                                Serde<KL> thisKeySerde,
                                                                Serde<KR> otherKeySerde,
                                                                Serde<VR> otherValueSerde,
@@ -918,13 +930,13 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         InternalTopologyBuilder topology = builder.internalTopologyBuilder;
 
         String repartitionerName = builder.newProcessorName(REPARTITION_NAME);
-        final String repartitionTopicName = name + "-" + JOINOTHER_NAME;
+        final String repartitionTopicName = name + "-TIBET-" + JOINOTHER_NAME;
 
         topology.addInternalTopic(repartitionTopicName);
         final String repartitionProcessorName = repartitionerName + "-" + SELECT_NAME;
         final String repartitionSourceName = repartitionerName + "-source";
         final String repartitionSinkName = repartitionerName + "-sink";
-        final String joinOnThisTableName = repartitionerName + "-table";
+        final String joinOnThisTableName = repartitionerName + "-tableWOO";
 
         // repartition original => intermediate topic
         KTableRepartitionerProcessorSupplier<KL, KR, VR> repartitionProcessor =
@@ -956,6 +968,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //    Returns the data keyed on the RightKey. Discards the CombinedKey as it is no longer needed after this stage.
         //TODO -  repartitionTopicName is used as the stateStoreName under the hood. Make it clearer?
         String joinByRangeName = builder.newProcessorName(BY_RANGE);
+
         final RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL, KR, VL, VR, V> joinOnThisTable =
                 new RepartitionedRightKeyValueGetterProviderAndProcessorSupplier(repartitionTopicName, ((KTableImpl<?, ?, ?>) this).valueGetterSupplier(), joiner);
         topology.addProcessor(joinOnThisTableName, joinOnThisTable, repartitionSourceName);
@@ -965,7 +978,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         // The state store is named repartitionTopicName. It is populated by the right processor and read by the left processor.
         KeyValueBytesStoreSupplier rdbs = new RocksDbKeyValueBytesStoreSupplier(repartitionTopicName);
         StateStore localSSRef = rdbs.get();
-        localSSRef.name();
 
         Materialized mat = Materialized.<CombinedKey<KL, KR>, VR, KeyValueStore<Bytes, byte[]>>as(localSSRef.name())
                 .withCachingDisabled()  //Need all values to be immediately available in the rocksDB store. No easy way to flush cache prior to prefixScan.
@@ -977,9 +989,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //This connects the right processor with the state store in the topology.
         topology.addStateStore(new KeyValueStoreMaterializer<>(repartitionedRangeScannableStore).materialize(), joinOnThisTableName);
 
-
-
-
         //Performs Left-driven updates (ie: new One, updates the Many).
         //Produces with the Real Key.
         KTableRangeValueGetterSupplier<CombinedKey<KL, KR>, VR> f = joinOnThisTable.valueGetterSupplier();
@@ -988,9 +997,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
-
-
-
 
         PrintableWrapperSerde<V0> joinedWrappedSerde = new PrintableWrapperSerde<>(joinedValueSerde);
 
@@ -1001,84 +1007,64 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
 
         //2) Sink both to common topic
         //Takes the results of the partitioner and sinks them to an internal topic, properly repartitioned according to the left foreign key.
-
         String finalRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
-        final String finalRepartitionTopicName = name + "-" + JOINOTHER_NAME;
+        final String finalRepartitionTopicName = finalRepartitionerName + "-" + JOINOTHER_NAME;
         topology.addInternalTopic(finalRepartitionTopicName);
         final String finalRepartitionProcessorName = finalRepartitionerName + "-" + SELECT_NAME;
         final String finalRepartitionSourceName = finalRepartitionerName + "-source";
         final String finalRepartitionSinkName = finalRepartitionerName + "-sink";
-        final String fnalJoinOnThisTableName = finalRepartitionerName + "-table";
+        final String fnalJoinOnThisTableName = finalRepartitionerName + "-tableLOO";
         ;
         topology.addSink(finalRepartitionSinkName, finalRepartitionTopicName,
                 otherKeySerde.serializer(), cs,
-                new DefaultStreamPartitioner(), repartitionProcessorName);
+                new RightKeyPartitioner<>(otherKeySerde, finalRepartitionTopicName),
+                joinByRangeName, joinOnThisTableName);
 
-        //3) Create Processor that reads from common topic.
-        //  - need to know the right side of the processor, so I can correctly apply the offset filtering on right-side elements.
-        //  - need offset management store for determining if out of order update should be used.
-        //  - need materialized store for the user.
+        //2b) Source from common topic.
+        topology.addSource(null, finalRepartitionSourceName, new FailOnInvalidTimestamp(),
+                otherKeySerde.deserializer(), cds, finalRepartitionTopicName);
 
+        //2c) Hook up processor to source
+        final String wrapperRemoverProcessor = builder.newProcessorName(KTableImpl.SOURCE_NAME);
+        //Define your unwrapperProcessor(timestampStore)
 
+        KeyValueBytesStoreSupplier highwaterRdbs = new RocksDbKeyValueBytesStoreSupplier(fnalJoinOnThisTableName);
+        Materialized highwaterMat = Materialized.<KR, Long, KeyValueStore<Bytes, byte[]>>as(highwaterRdbs.get().name())
+                .withCachingDisabled()  //Need all values to be immediately available in the rocksDB store. No easy way to flush cache prior to prefixScan.
+                .withKeySerde(otherKeySerde)
+                .withValueSerde(Serdes.Long());
+        MaterializedInternal<KR, Long, KeyValueStore<Bytes, byte[]>> highwaterMatInternal =
+                new MaterializedInternal<KR, Long, KeyValueStore<Bytes, byte[]>>(highwaterMat, builder, "SOMEFOO");
 
+        //This connects the right processor with the state store in the topology.
 
+        WrapperResolverProcessorSupplier unwrapperProcessor = new WrapperResolverProcessorSupplier(fnalJoinOnThisTableName);
+        topology.addProcessor(wrapperRemoverProcessor, unwrapperProcessor, finalRepartitionSourceName);
+        topology.addStateStore(new KeyValueStoreMaterializer<>(highwaterMatInternal).materialize(), wrapperRemoverProcessor);
+        topology.connectProcessorAndStateStores(wrapperRemoverProcessor, fnalJoinOnThisTableName);
 
-
-
-
-
-
-        //Join the left and the right outputs together into a new table.
-        KTableImpl<KR, V, V0> myThis = new KTableImpl<>(builder, joinOnThisTableName, joinOnThisTable, sourceNodes, this.queryableStoreName, false);
-        KTableImpl<KR, V, V0> myThat = new KTableImpl<>(builder, joinByRangeName, joinByRange, ((KTableImpl<K, ?, ?>) other).sourceNodes,
-                ((KTableImpl<K, ?, ?>) other).queryableStoreName, false);
-
-        Materialized myMat = Materialized.<KR, V0, KeyValueStore<Bytes, byte[]>>with(otherKeySerde, joinedValueSerde);
-        MaterializedInternal<KR, V0, KeyValueStore<Bytes, byte[]>> myUselessMaterializedStore = new MaterializedInternal(myMat, builder, "SOME_HANDLE_NAME");
-
-        //TODO - Figure out how to avoid materializing this...
-        final KTableKTableJoinMerger<KR, V0> joinMerge = new KTableKTableJoinMerger<>(
-                myThis,
-                myThat,
-                myUselessMaterializedStore.storeName());
-
-        //Add the join processor to the topology.
-        topology.addProcessor(joinMergeName, joinMerge, joinOnThisTableName, joinByRangeName);
-        //Connect the left processor to the to the left valueGetter (state store or predecessor processor)
-        //Connect the right processor to the repartitionedRangeScannableStore.
-        topology.connectProcessorAndStateStores(joinOnThisTableName, valueGetterSupplier().storeNames());
+        //Hook up the first stage processors to the source data.
+        topology.connectProcessorAndStateStores(joinByRangeName, ((KTableImpl) other).valueGetterSupplier().storeNames());
         topology.connectProcessorAndStateStores(joinByRangeName, localSSRef.name());
+        topology.connectProcessorAndStateStores(joinOnThisTableName, valueGetterSupplier().storeNames());
 
-        //Ensure that the repartitionedSource and the sourceNodes from this table are correctly co-partitioned.
-        //If they are not, this will ensure that they are repartitioned into the size of the largest partition count,
-        //and are allocated such that the same partition number (with the same keys) are on the same node.
+
         HashSet<String> sourcesNeedCopartitioning = new HashSet<>();
         sourcesNeedCopartitioning.add(repartitionSourceName);
         sourcesNeedCopartitioning.addAll(sourceNodes);
         topology.copartitionSources(sourcesNeedCopartitioning);
 
-        final StoreBuilder<KeyValueStore<KR, V0>> storeBuilder
-                = new KeyValueStoreMaterializer<>(myUselessMaterializedStore).materialize();
-        builder.internalTopologyBuilder.addStateStore(storeBuilder, joinMergeName);
-
-        String asdfTableName = builder.newProcessorName(SOURCE_NAME);
-        KTable asdf = new KTableImpl<>(builder,
-                asdfTableName,
-                joinMerge,
-                sourcesNeedCopartitioning,
-                myUselessMaterializedStore.storeName(),
-                myUselessMaterializedStore.storeName() != null);
-
-        topology.addProcessor(asdfTableName, joinMerge, joinMergeName);
-        topology.connectProcessorAndStateStores(asdfTableName, myUselessMaterializedStore.storeName());
+        KTable intermediateKTableForExport = new KTableImpl<>(builder, wrapperRemoverProcessor , unwrapperProcessor,
+                otherKeySerde, joinedValueSerde, sourcesNeedCopartitioning,
+                null, false);
 
         String outputRepartitionSinkName = builder.newProcessorName(REPARTITION_NAME);
         String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-Topic";
         topology.addInternalTopic(outputRepartitionSinkTopicName);
 
-        asdf
+        //TODO - Evaluate a less resource-intensive way to materialize just the relevant data in `materialized`.
+        intermediateKTableForExport
             .toStream()
-            //TODO - Bellemare - add a filter here to filter out the "doNotPrint" elements
             .to(outputRepartitionSinkTopicName, Produced.with(otherKeySerde, joinedValueSerde));
 
         return builder.table(outputRepartitionSinkTopicName,

@@ -1,5 +1,6 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
+import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.Serializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,7 +27,14 @@ class PrintableWrapperSerializer<V> implements Serializer<PrintableWrapper<V>> {
         byte printableOut = (byte)(data.isPrintable()?1:0);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
+        //8 bytes
+        System.out.println("data.getOffset() = " + data.getOffset());
+        byte[] longOffset = Serdes.Long().serializer().serialize(topic, data.getOffset());
+
+        System.out.println("Deserialized offset = " + Serdes.Long().deserializer().deserialize(topic, longOffset));
+
         try {
+            output.write(longOffset);
             output.write(printableOut);
             if (data != null) {
                 byte[] serializedData = serializer.serialize(topic, data.getElem());

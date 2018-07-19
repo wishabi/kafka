@@ -81,7 +81,11 @@ public class RepartitionedRightKeyValueGetterProviderAndProcessorSupplier<KL,KR,
                 if(oldValue != null || newValue != null) {
                     KR realKey = key.getRightKey();
                     //TODO - Propagate a PrintableWrapper change.
-                    context().forward(realKey, new Change<>(newValue, oldValue));
+                    //Use the offset of the original element, as it represents the original order of the now
+                    //foreign-keyed data. This is used upon resolution of conflicts when everything is repartitioned back.
+                    PrintableWrapper<V> newWrappedVal = new PrintableWrapper<>(newValue, true, value.getOffset());
+                    PrintableWrapper<V> oldWrappedVal = new PrintableWrapper<>(oldValue, true, value.getOffset());
+                    context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
                 }
             }
         };
