@@ -41,7 +41,6 @@ import org.junit.Test;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -129,7 +128,7 @@ public class KTableKTableOneToManyJoinTest {
 
         byte[] result = pwSerde.serializer().serialize("someTopic", fooWrap);
         PropagationWrapper<String> unwrappedFoo = pwSerde.deserializer().deserialize("someTopic", result);
-        assertEquals(unwrappedFoo.isPrintable(), fooWrap.isPrintable());
+        assertEquals(unwrappedFoo.isPropagate(), fooWrap.isPropagate());
         assertEquals(unwrappedFoo.getElem(), fooWrap.getElem());
 
         PropagationWrapper<String> nullWrap = new PropagationWrapper<>(null, true, 100L);

@@ -2,8 +2,7 @@ package org.apache.kafka.streams.kstream.internals.onetomany;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.serialization.Serializer;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -24,7 +23,7 @@ class PropagationWrapperSerializer<V> implements Serializer<PropagationWrapper<V
     public byte[] serialize(String topic, PropagationWrapper<V> data) {
         //{8-byte long-offset}{byte boolean, stored in bit 0}{4-byte value length}{value}
         //1 byte
-        byte printableOut = (byte)(data.isPrintable()?1:0);
+        byte printableOut = (byte)(data.isPropagate()?1:0);
         //8 bytes
         byte[] longOffset = Serdes.Long().serializer().serialize(topic, data.getOffset());
 

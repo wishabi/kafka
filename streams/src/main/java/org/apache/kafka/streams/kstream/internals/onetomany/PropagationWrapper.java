@@ -3,12 +3,12 @@ package org.apache.kafka.streams.kstream.internals.onetomany;
 public class PropagationWrapper<T> {
 
     private final T elem;
-    private final boolean printable;
+    private final boolean propagate;
     private final long offset;
 
-    public PropagationWrapper(T elem, boolean printable, long offset) {
+    public PropagationWrapper(T elem, boolean propagate, long offset) {
         this.elem = elem;
-        this.printable = printable;
+        this.propagate = propagate;
         this.offset = offset;
     }
 
@@ -16,8 +16,8 @@ public class PropagationWrapper<T> {
         return elem;
     }
 
-    public boolean isPrintable() {
-        return printable;
+    public boolean isPropagate() {
+        return propagate;
     }
 
     public long getOffset() { return offset;}

@@ -968,7 +968,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Add the left processor to the topology.
         topology.addProcessor(joinByRangeName, joinByRange, this.name);
 
-        //Create PropagationWrapper Serde and Change Serdes. This is used to
         final PropagationWrapperSerde<V0> joinedWrappedSerde = new PropagationWrapperSerde<>(joinedValueSerde);
         final ChangedSerializer changedSerializer = new ChangedSerializer<>(joinedWrappedSerde.serializer());
         final ChangedDeserializer changedDeserializer = new ChangedDeserializer<>(joinedWrappedSerde.deserializer());

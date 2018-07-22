@@ -53,9 +53,9 @@ public class RightSideProcessorSupplier<KL,KR, VL, VR, V>
             @Override
             public void process(CombinedKey<KL,KR> key, PropagationWrapper<VR> value)
             {
-                //Immediately abort on non-printable. We don't want to propagate a null due to a foreign-key change past this point.
+                //Immediately abort if propagate is false. We don't want to propagate a null due to a foreign-key change past this point.
                 //Propagation of the updated value will occur in a different partition.
-                if (!value.isPrintable()) {
+                if (!value.isPropagate()) {
                     return;
                 }
 
