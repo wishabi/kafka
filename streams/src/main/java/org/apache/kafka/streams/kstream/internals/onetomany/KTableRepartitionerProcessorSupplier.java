@@ -7,20 +7,20 @@ import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
 
-public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements ProcessorSupplier<KR, Change<VR>> {
+public class KTableRepartitionerProcessorSupplier<KL, KR, VL> implements ProcessorSupplier<KL, Change<VL>> {
 
-	private final ValueMapper<VR, KL> mapper;
+	private final ValueMapper<VL, KR> mapper;
 
-	public KTableRepartitionerProcessorSupplier(ValueMapper<VR,KL> extractor) {
+	public KTableRepartitionerProcessorSupplier(ValueMapper<VL,KR> extractor) {
 		this.mapper = extractor;
 	}
 	
 	@Override
-	public Processor<KR, Change<VR>> get() {
+	public Processor<KL, Change<VL>> get() {
 		return new UnbindChangeProcessor(); 
 	}
 	
-	private class UnbindChangeProcessor extends AbstractProcessor<KR, Change<VR>>
+	private class UnbindChangeProcessor extends AbstractProcessor<KL, Change<VL>>
 	{
 
 		@Override
@@ -29,19 +29,19 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 		}
 
 		@Override
-		public void process(KR key, Change<VR> change) {
+		public void process(KL key, Change<VL> change) {
 			
 			if(change.oldValue != null)
 			{
-				KL leftOldKey = mapper.apply(change.oldValue);
-				CombinedKey<KL,KR> combinedOldKey = new CombinedKey<>(leftOldKey, key);
+				KR oldForeignKey = mapper.apply(change.oldValue);
+				CombinedKey<KR,KL> combinedOldKey = new CombinedKey<>(oldForeignKey, key);
 				if(change.newValue != null)
 				{
-					KL extractedNewLeftKey = mapper.apply(change.newValue);
-					CombinedKey<KL, KR> combinedNewKey = new CombinedKey<>(extractedNewLeftKey, key);
+					KR extractedNewForeignKey = mapper.apply(change.newValue);
+					CombinedKey<KR, KL> combinedNewKey = new CombinedKey<>(extractedNewForeignKey, key);
 
 					//TODO - Requires equal to be defined. If not defined, should still resolve to same in the else-statement.
-					if(leftOldKey.equals(extractedNewLeftKey))
+					if(oldForeignKey.equals(extractedNewForeignKey))
 					{
 					    //Same foreign key. Just propagate onwards.
 						context().forward(combinedNewKey, new PropagationWrapper<>(change.newValue, true, context().offset()));
@@ -65,8 +65,8 @@ public class KTableRepartitionerProcessorSupplier<KL, KR, VR> implements Process
 			{
 				if(change.newValue != null)
 				{
-					KL extractedLeftKeyValue = mapper.apply(change.newValue);
-					CombinedKey<KL, KR> newCombinedKeyValue = new CombinedKey<>(extractedLeftKeyValue, key);
+					KR extractedForeignKeyValue = mapper.apply(change.newValue);
+					CombinedKey<KR, KL> newCombinedKeyValue = new CombinedKey<>(extractedForeignKeyValue, key);
 					context().forward(newCombinedKeyValue, new PropagationWrapper<>(change.newValue, true, context().offset()));
 				}
 				else

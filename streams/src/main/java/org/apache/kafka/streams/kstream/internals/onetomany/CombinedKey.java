@@ -1,27 +1,35 @@
 package org.apache.kafka.streams.kstream.internals.onetomany;
 
-public class CombinedKey<KL, KR> {
-    private final KL leftKey;
-    private KR rightKey = null;
+public class CombinedKey<KF, KP> {
+    private final KF foreignKey;
+    private KP primaryKey = null;
 
-    public CombinedKey(final KL leftKey, final KR rightKey) {
-        this.leftKey = leftKey;
-        this.rightKey = rightKey;
+    public CombinedKey(final KF foreignKey, final KP primaryKey) {
+        this.foreignKey = foreignKey;
+        this.primaryKey = primaryKey;
     }
 
-    public CombinedKey(final KL leftKey) {
-        this.leftKey = leftKey;
+    public CombinedKey(final KF leftKey) {
+        this.foreignKey = leftKey;
     }
 
-    public KL getLeftKey() {
-        return this.leftKey;
+    public KF getForeignKey() {
+        return this.foreignKey;
     }
 
-    public KR getRightKey() {
-        return this.rightKey;
+    public KP getPrimaryKey() {
+        return this.primaryKey;
     }
 
-    public boolean equals(KL leftKey, KR rightKey) {
-        return this.leftKey.equals(leftKey) && this.rightKey.equals(rightKey);
+    public boolean equals(KF leftKey, KP rightKey) {
+        return this.foreignKey.equals(leftKey) && this.primaryKey.equals(rightKey);
+    }
+
+    @Override
+    public String toString() {
+        return "CombinedKey{" +
+                "foreignKey=" + foreignKey +
+                ", primaryKey=" + primaryKey +
+                '}';
     }
 }

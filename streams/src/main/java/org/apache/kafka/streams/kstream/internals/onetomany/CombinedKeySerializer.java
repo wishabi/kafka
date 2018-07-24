@@ -3,8 +3,6 @@ package org.apache.kafka.streams.kstream.internals.onetomany;
 import org.apache.kafka.common.serialization.Serializer;
 
 import javax.xml.bind.DatatypeConverter;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -28,13 +26,13 @@ class CombinedKeySerializer<KL,KR> implements Serializer<CombinedKey<KL,KR>> {
         //{4-byte left length}{leftKeySerialized}{4-byte right length}{rightKeySerialized}
 
         //? bytes
-        byte[] leftSerializedData = leftSerializer.serialize(topic, data.getLeftKey());
+        byte[] leftSerializedData = leftSerializer.serialize(topic, data.getForeignKey());
         //4 bytes
         byte[] leftSize = numToBytes(leftSerializedData.length);
 
-        if (data.getRightKey() != null) {
+        if (data.getPrimaryKey() != null) {
             //? bytes
-            byte[] rightSerializedData = rightSerializer.serialize(topic, data.getRightKey());
+            byte[] rightSerializedData = rightSerializer.serialize(topic, data.getPrimaryKey());
             //4 bytes
             byte[] rightSize = numToBytes(rightSerializedData.length);
             byte[] total = new byte[8 + leftSerializedData.length + rightSerializedData.length];

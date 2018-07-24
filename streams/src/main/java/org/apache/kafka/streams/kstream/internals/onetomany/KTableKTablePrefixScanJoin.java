@@ -14,78 +14,92 @@ import org.apache.kafka.streams.processor.StateStore;
 import org.apache.kafka.streams.state.KeyValueIterator;
 
 
-public class KTableKTableRangeJoin<KL, KR, VL, VR, V> implements ProcessorSupplier<KL, Change<VL>> {
+public class KTableKTablePrefixScanJoin<KL, KR, VL, VR, V> implements ProcessorSupplier<KR, Change<VR>> {
 
 	private final ValueJoiner<VL, VR, V> joiner;
-	private final KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right;
+	private final KTableRangeValueGetterSupplier<CombinedKey<KR, KL>, VL> primary;
 	private final StateStore ref;
 
-    //Performs Left-driven updates (ie: new One, updates the Many).
-    public KTableKTableRangeJoin(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right,
-                                 ValueJoiner<VL, VR, V> joiner,
-                                 StateStore ref){
+    public KTableKTablePrefixScanJoin(KTableRangeValueGetterSupplier<CombinedKey<KR, KL>,VL> primary,
+                                      ValueJoiner<VL, VR, V> joiner,
+                                      StateStore ref){
 
-    	this.right = right;
+    	this.primary = primary;
         this.joiner = joiner;
         this.ref = ref;
     }
 
 	@Override
-    public Processor<KL, Change<VL>> get() {
-        return new KTableKTableJoinProcessor(right);
+    public Processor<KR, Change<VR>> get() {
+        return new KTableKTableJoinProcessor(primary);
     }
 	
 
-    private class KTableKTableJoinProcessor extends AbstractProcessor<KL, Change<VL>> {
+    private class KTableKTableJoinProcessor extends AbstractProcessor<KR, Change<VR>> {
 
-		private final KTableRangeValueGetter<CombinedKey<KL,KR>,VR> rightValueGetter;
+		private final KTableRangeValueGetter<CombinedKey<KR,KL>,VL> leftValueGetter;
 
-        public KTableKTableJoinProcessor(KTableRangeValueGetterSupplier<CombinedKey<KL,KR>,VR> right) {
-            this.rightValueGetter = right.get();
+        public KTableKTableJoinProcessor(KTableRangeValueGetterSupplier<CombinedKey<KR,KL>,VL> left) {
+            this.leftValueGetter = left.get();
         }
 
         @SuppressWarnings("unchecked")
         @Override
         public void init(ProcessorContext context) {
             super.init(context);
-            rightValueGetter.init(context);
+            leftValueGetter.init(context);
         }
 
         /**
          * @throws StreamsException if key is null
          */
         @Override
-        public void process(KL key, Change<VL> leftChange) {
+        public void process(KR key, Change<VR> change) {
+//            System.out.println("PrefixScan process (" + key.toString() +", " + change.toString() + ")");
+
             // the keys should never be null
             if (key == null)
                 throw new StreamsException("Record key for KTable join operator should not be null.");
 
             //Wrap it in a combinedKey and let the serializer handle the prefixing.
-            CombinedKey<KL,KR> prefixKey = new CombinedKey<>(key);
+            CombinedKey<KR,KL> prefixKey = new CombinedKey<>(key);
 
             //Flush the foreign state store, as we need all elements to be flushed for a proper range scan.
             ref.flush();
-            final KeyValueIterator<CombinedKey<KL,KR>,VR> rightValues = rightValueGetter.prefixScan(prefixKey);
+            final KeyValueIterator<CombinedKey<KR,KL>,VL> rightValues = leftValueGetter.prefixScan(prefixKey);
+
+            boolean results = false;
 
             while(rightValues.hasNext()){
-                  KeyValue<CombinedKey<KL,KR>, VR> rightKeyValue = rightValues.next();
-                  KR realKey = rightKeyValue.key.getRightKey();
-                  VR value2 = rightKeyValue.value;
+
+                  KeyValue<CombinedKey<KR,KL>, VL> rightKeyValue = rightValues.next();
+
+                results = true;
+//                System.out.println("PrefixScan scan-result (" + rightKeyValue.key.toString() +", " + rightKeyValue.value.toString() + ")");
+
+
+                KL realKey = rightKeyValue.key.getPrimaryKey();
+                  VL value2 = rightKeyValue.value;
                   V newValue = null;
   				  V oldValue = null;
 
-                  if (leftChange.oldValue != null) {
-                	  oldValue = joiner.apply(leftChange.oldValue, value2);
+                  if (change.oldValue != null) {
+                	  oldValue = joiner.apply(value2, change.oldValue);
                   }
                   
-                  if (leftChange.newValue != null){
-                      newValue = joiner.apply(leftChange.newValue, value2);
+                  if (change.newValue != null){
+                      newValue = joiner.apply(value2, change.newValue);
                   }
                   //TODO - Possibly rework this so that it's a different wrapper. We don't need the printable part anymore, but it's annoying to have to create another nearly-the-same class.
                   //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
                   PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, -1);
                   PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, -1);
+
+//                  System.out.println("PrefixScan forward (" + realKey.toString() +", " + newWrappedVal.toString() + ")");
                   context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
+            }
+            if (!results) {
+//                System.out.println("PrefixScan result: Empty!");
             }
         }
     }

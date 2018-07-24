@@ -2294,14 +2294,14 @@ public interface KTable<K, V> {
      */
 
 
-    <V0, KL, VL, KR, VR> KTable<KR, V0> oneToManyJoin(KTable<KR, VR> other,
-                                                        ValueMapper<VR, KL> keyExtractor,
-                                                        final ValueJoiner<VL, VR, V0> joiner,
-                                                        final Materialized<KR, V0, KeyValueStore<Bytes, byte[]>> materialized,
-                                                        Serde<KL> thisKeySerde,
-                                                        Serde<KR> otherKeySerde,
-                                                        Serde<VR> otherValueSerde,
-                                                        Serde<V0> joinedValueSerde);
+    <V0, KL, VL, KR, VR> KTable<KL, V0> joinOnForeignKey(KTable<KR, VR> other,
+                                                         ValueMapper<VL, KR> keyExtractor,
+                                                         final ValueJoiner<VL, VR, V0> joiner,
+                                                         final Materialized<KL, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                         Serde<KL> thisKeySerde,
+                                                         Serde<VL> thisValueSerde,
+                                                         Serde<KR> otherKeySerde,
+                                                         Serde<V0> joinedValueSerde);
 
     /**
      * Get the name of the local state store used that can be used to query this {@code KTable}.

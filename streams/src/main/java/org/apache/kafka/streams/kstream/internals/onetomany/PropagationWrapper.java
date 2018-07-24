@@ -22,4 +22,12 @@ public class PropagationWrapper<T> {
 
     public long getOffset() { return offset;}
 
+    @Override
+    public String toString() {
+        return "PropagationWrapper{" +
+                "elem=" + elem +
+                ", propagate=" + propagate +
+                ", offset=" + offset +
+                '}';
+    }
 }

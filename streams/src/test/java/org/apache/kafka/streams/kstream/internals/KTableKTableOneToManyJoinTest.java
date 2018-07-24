@@ -50,8 +50,6 @@ public class KTableKTableOneToManyJoinTest {
 
     private final String topic1 = "topic1";
     private final String topic2 = "topic2";
-    private final String topic3 = "topic3";
-
     private final Serde<String> stringSerde = Serdes.String();
     private final Consumed<String, String> consumed = Consumed.with(stringSerde, stringSerde);
 
@@ -75,18 +73,11 @@ public class KTableKTableOneToManyJoinTest {
 
         final KTable<String, String> table1;
         final KTable<String, String> table2;
-        final KTable<String, String> table3;
         final KTable<String, String> joined;
-        final KTable<String, String> joined2;
         final MockProcessorSupplier<String, String> supplier = new MockProcessorSupplier<>();
-        final MockProcessorSupplier<String, String> supplierTwo = new MockProcessorSupplier<>();
         table1 = builder.table(topic1, consumed);
         table2 = builder.table(topic2, consumed);
-        table3 = builder.table(topic3, consumed);
 
-        //One is on the left
-        //Many is on the right.
-        //Rekey the many on the right to join the one on the left.
         ValueMapper<String, String> tableOneKeyExtractor = new ValueMapper<String, String>() {
             @Override
             public String apply(String value) {
@@ -111,17 +102,9 @@ public class KTableKTableOneToManyJoinTest {
         CombinedKey<String, Double> gg = ff.deserializer().deserialize("dummyTopic", ss);
 
         Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat =
-                Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore")
-                .withCachingDisabled()
-                .withLoggingDisabled()
+                Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeTestingStore")
                 .withKeySerde(Serdes.String())
                 .withValueSerde(Serdes.String());
-
-        Materialized<String, String, KeyValueStore<Bytes, byte[]>> mat2 =
-                Materialized.<String, String, KeyValueStore<Bytes, byte[]>>as("SomeStore2")
-                        .withKeySerde(Serdes.String())
-                        .withValueSerde(Serdes.String());
-
 
         PropagationWrapperSerde<String> pwSerde = new PropagationWrapperSerde(Serdes.String());
         PropagationWrapper<String> fooWrap = new PropagationWrapper<>("my string", true, 100L);
@@ -137,31 +120,25 @@ public class KTableKTableOneToManyJoinTest {
         PropagationWrapper<String> someUnwrappedNullResult = pwSerde.deserializer().deserialize("someTopic", nullWrapResult);
 
         joined = table1
-                .oneToManyJoin(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
-
-        joined2 = joined
-                .oneToManyJoin(table3, tableOneKeyExtractor, joiner, mat2, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
+                .joinOnForeignKey(table2, tableOneKeyExtractor, joiner, mat, Serdes.String(), Serdes.String(), Serdes.String(), Serdes.String());
 
         //Load the process supplier for the test.
         joined.toStream().process(supplier);
-        joined2.toStream().process(supplierTwo);
 
-        doTestJoin(builder, expectedKeys, supplier, supplierTwo, joined, joined2);
+        doTestJoin(builder, expectedKeys, supplier, joined);
     }
 
 
     private void doTestJoin(final StreamsBuilder builder,
                             final String[] expectedKeys,
                             final MockProcessorSupplier<String, String> supplier,
-                            final MockProcessorSupplier<String, String> supplier2,
-                            final KTable<String, String> joined,
-                            final KTable<String, String> joined2) {
+                            final KTable<String, String> joined) {
 
         StreamsBuilderTest.internalTopologyBuilder(builder).setApplicationId(APP_ID);
 
         final Collection<Set<String>> copartitionGroups = StreamsBuilderTest.getCopartitionedGroups(builder);
 
-        assertEquals(2, copartitionGroups.size());
+        assertEquals(1, copartitionGroups.size());
 
         final KTableValueGetterSupplier<String, String> getterSupplier = ((KTableImpl<String, String, String>) joined).valueGetterSupplier();
 
@@ -171,37 +148,30 @@ public class KTableKTableOneToManyJoinTest {
         final KTableValueGetter<String, String> getter = getterSupplier.get();
         getter.init(driver.context());
 
-        for (int i = 0; i < 3; i++) {
-            driver.process(topic1, expectedKeys[i], expectedKeys[i] + ",X");
+        for (int i = 5; i < 8; i++) {
+            driver.process(topic1, String.valueOf(i), "1,"+i+",YYYY");
         }
         // pass tuple with null key, it will be discarded in join process
         driver.process(topic1, null, "SomeVal");
         driver.flushState();
 
-        for (int i = 5; i < 8; i++) {
-            driver.process(topic2, String.valueOf(i), "1,"+i+",YYYY");
+        for (int i = 0; i < 3; i++) {
+            driver.process(topic2, expectedKeys[i], expectedKeys[i] + ",X");
         }
         // pass tuple with null key, it will be discarded in join process
         driver.process(topic2, null, "AnotherVal");
         driver.flushState();
 
-        supplier.checkAndClearProcessResult("5:value1=1,X,value2=1,5,YYYY", "6:value1=1,X,value2=1,6,YYYY", "7:value1=1,X,value2=1,7,YYYY");
+        supplier.checkAndClearProcessResult("5:value1=1,5,YYYY,value2=1,X", "6:value1=1,6,YYYY,value2=1,X", "7:value1=1,7,YYYY,value2=1,X");
 
-        checkJoinedValues(getter, kv("5", "value1=1,X,value2=1,5,YYYY"), kv("6", "value1=1,X,value2=1,6,YYYY"), kv("7","value1=1,X,value2=1,7,YYYY"));
+        checkJoinedValues(getter, kv("5", "value1=1,5,YYYY,value2=1,X"), kv("6", "value1=1,6,YYYY,value2=1,X"), kv("7","value1=1,7,YYYY,value2=1,X"));
 
         //Now update from the other side.
-        driver.process(topic1, "1", "1,XYZ");
+        driver.process(topic2, "1", "1,XYZ");
         driver.flushState();
 
-        supplier.checkAndClearProcessResult("5:value1=1,XYZ,value2=1,5,YYYY", "6:value1=1,XYZ,value2=1,6,YYYY", "7:value1=1,XYZ,value2=1,7,YYYY");
-        checkJoinedValues(getter, kv("5", "value1=1,XYZ,value2=1,5,YYYY"), kv("6", "value1=1,XYZ,value2=1,6,YYYY"), kv("7","value1=1,XYZ,value2=1,7,YYYY"));
-
-        for (int i = 12; i < 13; i++) {
-            driver.process(topic3, String.valueOf(i), "6,"+i+",ZZZZ");
-        }
-        driver.flushState();
-
-        supplier2.checkAndClearProcessResult("12:value1=value1=1,XYZ,value2=1,6,YYYY,value2=6,12,ZZZZ");
+        supplier.checkAndClearProcessResult("5:value1=1,5,YYYY,value2=1,XYZ", "6:value1=1,6,YYYY,value2=1,XYZ", "7:value1=1,7,YYYY,value2=1,XYZ");
+        checkJoinedValues(getter, kv("5", "value1=1,5,YYYY,value2=1,XYZ"), kv("6", "value1=1,6,YYYY,value2=1,XYZ"), kv("7","value1=1,7,YYYY,value2=1,XYZ"));
     }
 
     private KeyValue<String, String> kv(final String key, final String value) {
