@@ -37,7 +37,6 @@ public class HighwaterResolverProcessorSupplier<KR, V>
             @Override
             public void process(KR key, Change<PropagationWrapper<V>> value)
             {
-                System.out.println("Highwater process (" + key.toString() +", " + value.toString() + ")");
                 //highwater = X, value(offset = x+1, null)      => update & send
                 //highwater = X, value(offset = x+1, non-null)  => update & send
                 //highwater = X, value(offset = x, null)        => May occur if there is a system failure and we are restoring.
@@ -53,7 +52,6 @@ public class HighwaterResolverProcessorSupplier<KR, V>
                     context().forward(key, new Change<>(value.newValue.getElem(), null));
                 } else if (value.newValue.getOffset() == -1 ) {
                     //TODO - Is there a better way to forward from the left? Perhaps the topic metadata?
-//                    System.out.println("Highwater forward (" + key.toString() +", " + value.newValue.getElem().toString() + ")");
                     context().forward(key, new Change<>(value.newValue.getElem(), null));
                 }
             }
