@@ -1026,6 +1026,10 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         final String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-Topic";
         topology.addInternalTopic(outputRepartitionSinkTopicName);
 
+        //There is an issue when trying to replace this all with a KTableSource from the repartitioned topic.
+        //Downstream joins of this join fail, due to the partitions not being colocated properly. Not sure how to properly
+        //ensure partitioning when injecting the highwater processor between the Source and the KTableImpl being returned.
+        //The following is a workaround for that issue.
         intermediateKTableForExport
                 .toStream()
                 .to(outputRepartitionSinkTopicName, Produced.with(thisKeySerde, joinedValueSerde));
