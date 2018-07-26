@@ -2294,14 +2294,24 @@ public interface KTable<K, V> {
      */
 
 
-    <V0, KL, VL, KR, VR> KTable<KL, V0> joinOnForeignKey(KTable<KR, VR> other,
-                                                         ValueMapper<VL, KR> keyExtractor,
+    <V0, KL, VL, KR, VR> KTable<KL, V0> joinOnForeignKey(final KTable<KR, VR> other,
+                                                         final ValueMapper<VL, KR> keyExtractor,
                                                          final ValueJoiner<VL, VR, V0> joiner,
                                                          final Materialized<KL, V0, KeyValueStore<Bytes, byte[]>> materialized,
-                                                         Serde<KL> thisKeySerde,
-                                                         Serde<VL> thisValueSerde,
-                                                         Serde<KR> otherKeySerde,
-                                                         Serde<V0> joinedValueSerde);
+                                                         final Serde<KL> thisKeySerde,
+                                                         final Serde<VL> thisValueSerde,
+                                                         final Serde<KR> otherKeySerde,
+                                                         final Serde<V0> joinedValueSerde);
+
+    <V0, KL, VL, KR, VR> KTable<KL, V0> joinOnForeignKey(final KTable<KR, VR> other,
+                                                         final ValueMapper<VL, KR> keyExtractor,
+                                                         final ValueJoiner<VL, VR, V0> joiner,
+                                                         final Materialized<KL, V0, KeyValueStore<Bytes, byte[]>> materialized,
+                                                         final StreamPartitioner<KR,?> foreignKeyPartitioner,
+                                                         final Serde<KL> thisKeySerde,
+                                                         final Serde<VL> thisValueSerde,
+                                                         final Serde<KR> otherKeySerde,
+                                                         final Serde<V0> joinedValueSerde);
 
     /**
      * Get the name of the local state store used that can be used to query this {@code KTable}.
