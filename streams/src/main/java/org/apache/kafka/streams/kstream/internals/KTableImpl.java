@@ -41,7 +41,6 @@ import org.apache.kafka.streams.kstream.internals.onetomany.CombinedKeyLeftKeyPa
 import org.apache.kafka.streams.kstream.internals.onetomany.PropagationWrapper;
 import org.apache.kafka.streams.kstream.internals.onetomany.PropagationWrapperSerde;
 import org.apache.kafka.streams.kstream.internals.onetomany.LeftSideProcessorSupplier;
-import org.apache.kafka.streams.kstream.internals.onetomany.LeftKeyPartitioner;
 import org.apache.kafka.streams.kstream.internals.onetomany.HighwaterResolverProcessorSupplier;
 import org.apache.kafka.streams.processor.FailOnInvalidTimestamp;
 import org.apache.kafka.streams.processor.ProcessorSupplier;
@@ -908,13 +907,13 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         enableSendingOldValues();
         final InternalTopologyBuilder topology = builder.internalTopologyBuilder;
 
-        final String repartitionerName = builder.newProcessorName(REPARTITION_NAME + "_WOOLOO");
+        final String repartitionerName = builder.newProcessorName(REPARTITION_NAME);
         final String repartitionTopicName = JOINOTHER_NAME + name;
         topology.addInternalTopic(repartitionTopicName);
         final String repartitionProcessorName = repartitionerName + "-" + SELECT_NAME;
-        final String repartitionSourceName = repartitionerName + "-source";
-        final String repartitionSinkName = repartitionerName + "-sink";
-        final String joinOneToOneName = repartitionerName + "-table";
+        final String repartitionSourceName = repartitionerName + "-SOURCE";
+        final String repartitionSinkName = repartitionerName + "-SINK";
+        final String joinOneToOneName = repartitionerName + "-TABLE";
 
         // repartition original => intermediate topic
         KTableRepartitionerProcessorSupplier<KL, KR, VL> repartitionProcessor =
@@ -975,17 +974,17 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Both the left and the right are now keyed as: (KR, Change<PropagationWrapper<K0>>)
         //Need to write all updates to a given KR back to the same partition, as at this point in the topology
         //everything is partitioned on KL.
-        final String finalRepartitionerName = builder.newProcessorName(REPARTITION_NAME + "_FOOFOO_");
+        final String finalRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
         final String finalRepartitionTopicName = JOINOTHER_NAME + finalRepartitionerName;
         topology.addInternalTopic(finalRepartitionTopicName);
-        final String finalRepartitionSourceName = finalRepartitionerName + "-source";
-        final String finalRepartitionSinkName = finalRepartitionerName + "-sink";
-        final String finalRepartitionTableName = finalRepartitionerName + "-table";
+        final String finalRepartitionSourceName = finalRepartitionerName + "-SOURCE";
+        final String finalRepartitionSinkName = finalRepartitionerName + "-SINK";
+        final String finalRepartitionTableName = finalRepartitionerName + "-TABLE";
 
         //Sink the data, and source it back.
         topology.addSink(finalRepartitionSinkName, finalRepartitionTopicName,
                 thisKeySerde.serializer(), changedSerializer,
-                new LeftKeyPartitioner<>(thisKeySerde, finalRepartitionTopicName),
+                null,
                 joinByRangeName, joinOneToOneName);
         topology.addSource(null, finalRepartitionSourceName, new FailOnInvalidTimestamp(),
                 thisKeySerde.deserializer(), changedDeserializer, finalRepartitionTopicName);
@@ -1022,8 +1021,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 thisKeySerde, joinedValueSerde, sourcesNeedCopartitioning,
                 null, false);
 
-        final String outputRepartitionSinkName = builder.newProcessorName(REPARTITION_NAME + "_BAHBAH_");
-        final String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-Topic";
+        final String outputRepartitionSinkName = builder.newProcessorName(REPARTITION_NAME);
+        final String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-TOPIC";
         topology.addInternalTopic(outputRepartitionSinkTopicName);
 
         //There is an issue when trying to replace this all with a KTableSource from the repartitioned topic.

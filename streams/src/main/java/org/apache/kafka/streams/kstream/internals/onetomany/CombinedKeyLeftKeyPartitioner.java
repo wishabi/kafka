@@ -17,7 +17,6 @@ public class CombinedKeyLeftKeyPartitioner<KL,KR,V> implements StreamPartitioner
 	@Override
 	public Integer partition(CombinedKey<KL, KR> key, V value, int numPartitions) {
 		byte[] data = keySerializer.serialize(topic, key.getForeignKey());
-		int partition = Utils.toPositive(Utils.murmur2(data)) % numPartitions;
-		return partition;
+		return Utils.toPositive(Utils.murmur2(data)) % numPartitions;
 	}
 }
