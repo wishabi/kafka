@@ -2293,7 +2293,6 @@ public interface KTable<K, V> {
      * @return
      */
 
-
     <V0, KL, VL, KR, VR> KTable<KL, V0> joinOnForeignKey(final KTable<KR, VR> other,
                                                          final ValueMapper<VL, KR> keyExtractor,
                                                          final ValueJoiner<VL, VR, V0> joiner,
