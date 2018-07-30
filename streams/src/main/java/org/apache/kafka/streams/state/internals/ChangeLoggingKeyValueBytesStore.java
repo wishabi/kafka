@@ -96,4 +96,9 @@ public class ChangeLoggingKeyValueBytesStore extends WrappedStateStore.AbstractS
     public KeyValueIterator<Bytes, byte[]> all() {
         return inner.all();
     }
+
+    @Override
+    public KeyValueIterator<Bytes, byte[]> prefixScan(Bytes prefix) {
+        return inner.prefixScan(prefix);
+    }
 }

@@ -1,0 +1,4 @@
+
+
+ tar -xzvf ./core/build/distributions/kafka_2.12-1.0.2-BELLEMARE.tgz 
+kafka_2.12-1.0.2-BELLEMARE/libs

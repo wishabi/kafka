@@ -45,6 +45,7 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -387,6 +388,16 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
         return rocksDbIterator;
     }
 
+    @Override
+    public synchronized KeyValueIterator<K, V> prefixScan(K prefix) {
+        Objects.requireNonNull(prefix, "prefix cannot be null");
+        validateStoreOpen();
+        // query rocksdb
+        final RocksDBStore<K, V>.RocksDbPrefixIterator rocksDBRangeIterator = new RocksDbPrefixIterator(name, db.newIterator(), serdes, prefix);
+        openIterators.add(rocksDBRangeIterator);
+        return rocksDBRangeIterator;
+    }
+
     /**
      * Return an approximate count of key-value mappings in this store.
      *
@@ -582,4 +593,35 @@ public class RocksDBStore<K, V> implements KeyValueStore<K, V> {
             rocksDBStore.toggleDbForBulkLoading(false);
         }
     }
+
+    private class RocksDbPrefixIterator extends RocksDbIterator {
+        private byte[] rawPrefix;
+
+        RocksDbPrefixIterator(String name, RocksIterator newIterator,
+                                     StateSerdes<K, V> serdes, K prefix) {
+            super(name, newIterator, serdes);
+            this.rawPrefix = serdes.rawKey(prefix);
+            newIterator.seek(rawPrefix);
+        }
+
+        @Override
+        public synchronized boolean hasNext() {
+            if(!super.hasNext()){
+                return false;
+            }
+
+            byte[] rawNextKey = super.peekRawKey();
+            for (int i = 0; i < rawPrefix.length; i++) {
+                if (i == rawNextKey.length) {
+                    throw new ArrayIndexOutOfBoundsException("Unexpected RocksDB Key Value. Should have been skipped with seek.");
+                }
+                if (rawNextKey[i] != rawPrefix[i]) {
+                    return false;
+                }
+            }
+            return true;
+
+        }
+    }
+
 }

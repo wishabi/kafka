@@ -176,6 +176,11 @@ class CachingKeyValueStore<K, V> extends WrappedStateStore.AbstractStateStore im
     }
 
     @Override
+    public KeyValueIterator<Bytes, byte[]> prefixScan(Bytes prefix) {
+        return underlying.prefixScan(prefix);
+    }
+
+    @Override
     public synchronized long approximateNumEntries() {
         validateStoreOpen();
         return underlying.approximateNumEntries();

@@ -120,4 +120,9 @@ class ChangeLoggingKeyValueStore<K, V> extends WrappedStateStore.AbstractStateSt
     public KeyValueIterator<K, V> all() {
         return new SerializedKeyValueIterator<>(innerBytes.all(), serdes);
     }
+
+    @Override
+    public KeyValueIterator<K, V> prefixScan(K prefix) {
+        return new SerializedKeyValueIterator<>(this.innerBytes.prefixScan(Bytes.wrap(serdes.rawKey(prefix))), serdes);
+    }
 }
