@@ -72,31 +72,31 @@ public class KTableKTablePrefixScanJoin<KL, KR, VL, VR, V> implements ProcessorS
 
             while(rightValues.hasNext()){
 
-                  KeyValue<CombinedKey<KR,KL>, VL> rightKeyValue = rightValues.next();
+                KeyValue<CombinedKey<KR,KL>, VL> rightKeyValue = rightValues.next();
 
                 results = true;
 //                System.out.println("PrefixScan scan-result (" + rightKeyValue.key.toString() +", " + rightKeyValue.value.toString() + ")");
 
 
                 KL realKey = rightKeyValue.key.getPrimaryKey();
-                  VL value2 = rightKeyValue.value;
-                  V newValue = null;
-  				  V oldValue = null;
+                VL value2 = rightKeyValue.value;
+                V newValue = null;
+                V oldValue = null;
 
-                  if (change.oldValue != null) {
-                	  oldValue = joiner.apply(value2, change.oldValue);
-                  }
-                  
-                  if (change.newValue != null){
-                      newValue = joiner.apply(value2, change.newValue);
-                  }
-                  //TODO - Possibly rework this so that it's a different wrapper. We don't need the printable part anymore, but it's annoying to have to create another nearly-the-same class.
-                  //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
-                  PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, -1);
-                  PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, -1);
+                if (change.oldValue != null) {
+                    oldValue = joiner.apply(value2, change.oldValue);
+                }
+
+                if (change.newValue != null){
+                    newValue = joiner.apply(value2, change.newValue);
+                }
+                //TODO - Possibly rework this so that it's a different wrapper. We don't need the printable part anymore, but it's annoying to have to create another nearly-the-same class.
+                //Using -1 because we will not have race conditions from this side of the join to disambiguate with source offset.
+                PropagationWrapper<V> newWrappedVal = new PropagationWrapper<>(newValue, true, -1);
+                PropagationWrapper<V> oldWrappedVal = new PropagationWrapper<>(oldValue, true, -1);
 
 //                  System.out.println("PrefixScan forward (" + realKey.toString() +", " + newWrappedVal.toString() + ")");
-                  context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
+                context().forward(realKey, new Change<>(newWrappedVal, oldWrappedVal));
             }
             if (!results) {
 //                System.out.println("PrefixScan result: Empty!");

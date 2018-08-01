@@ -53,9 +53,11 @@ public class LeftSideProcessorSupplier<KL, KR, VL, VR, V>
             @Override
             public void process(CombinedKey<KR,KL> key, PropagationWrapper<VL> value)
             {
-                //Immediately abort if propagate is false. We don't want to propagate a null due to a foreign-key change past this point.
-                //Propagation of the updated value will occur in a different partition.
+                //We don't want to propagate a null due to a foreign-key change past this point.
+                //Propagation of the updated value will occur in a different partition. State store needs deletion.
                 if (!value.isPropagate()) {
+                    store.delete(key);
+//                    System.out.println("Deleted the value of "+key.toString()+" from store due to isPropagate");
                     return;
                 }
 
@@ -64,6 +66,7 @@ public class LeftSideProcessorSupplier<KL, KR, VL, VR, V>
                 store.put(key, value.getElem());
 //                System.out.println("LeftSide LOADED TO SS: (" + key.toString() +", " + value.getElem().toString() + ")");
 //                System.out.println("LeftSide Retry the get: (" + key.toString() +", " + store.get(key) + ")");
+
 
                 V newValue = null;
                 V oldValue = null;
