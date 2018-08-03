@@ -56,6 +56,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -896,8 +897,6 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         Objects.requireNonNull(joiner, "joiner can't be null");
         Objects.requireNonNull(materialized, "materialized can't be null");
 
-//        final String internalQueryableName = materialized == null ? null : materialized.storeName();
-//        final String joinMergeName = builder.newProcessorName(MERGE_NAME);
         final KTable<KL, V0> result = buildJoinOnForeignKey(other,
                 keyExtractor,
                 joiner,
@@ -907,6 +906,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
                 thisValueSerde,
                 otherKeySerde,
                 joinedValueSerde);
+
         return result;
     }
 
@@ -925,7 +925,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         enableSendingOldValues();
 
         final String repartitionerName = builder.newProcessorName(REPARTITION_NAME);
-        final String repartitionTopicName = JOINOTHER_NAME + name;
+        final String repartitionTopicName = JOINOTHER_NAME + repartitionerName + "-TOPIC";
         final String repartitionProcessorName = repartitionerName + "-" + SELECT_NAME;
         final String repartitionSourceName = repartitionerName + "-SOURCE";
         final String repartitionSinkName = repartitionerName + "-SINK";
@@ -981,7 +981,7 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         //Need to write all updates to a given KR back to the same partition, as at this point in the topology
         //everything is partitioned on KL.
         final String finalRepartitionerName = builder.newProcessorName(REPARTITION_NAME);
-        final String finalRepartitionTopicName = JOINOTHER_NAME + finalRepartitionerName;
+        final String finalRepartitionTopicName = JOINOTHER_NAME + finalRepartitionerName + "-TOPIC";
 
         final String finalRepartitionSourceName = finalRepartitionerName + "-SOURCE";
         final String finalRepartitionSinkName = finalRepartitionerName + "-SINK";
@@ -1027,31 +1027,32 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         builder.internalTopologyBuilder.connectProcessorAndStateStores(joinByRangeName, rangeScannableDBRef.name());
         builder.internalTopologyBuilder.connectProcessorAndStateStores(joinOneToOneName, ((KTableImpl) other).valueGetterSupplier().storeNames());
 
-        //Copartition the repartitioned data with the other table.
-        final HashSet<String> sourcesNeedCopartitioning = new HashSet<>();
-        sourcesNeedCopartitioning.add(repartitionSourceName);
-        sourcesNeedCopartitioning.addAll(((KTableImpl<?, ?, ?>) other).sourceNodes);
-        builder.internalTopologyBuilder.copartitionSources(sourcesNeedCopartitioning);
 
-        //TODO - Evaluate a less resource-intensive way to materialize just the relevant data in `materialized`.
-        final KTable intermediateKTableForExport = new KTableImpl<>(builder, highwaterProcessorName , highwaterProcessor,
-                thisKeySerde, joinedValueSerde, sourcesNeedCopartitioning,
-                null, false);
+        //Final output and input need to be partitioned identically.
+        final HashSet<String> stageOneAndOtherCopartition = new HashSet<>();
+        stageOneAndOtherCopartition.add(repartitionSourceName);
+        stageOneAndOtherCopartition.addAll(((KTableImpl<?, ?, ?>) other).sourceNodes);
+        builder.internalTopologyBuilder.copartitionSources(stageOneAndOtherCopartition);
 
-        final String outputRepartitionSinkName = builder.newProcessorName(REPARTITION_NAME);
-        final String outputRepartitionSinkTopicName = outputRepartitionSinkName + "-TOPIC";
-        builder.internalTopologyBuilder.addInternalTopic(outputRepartitionSinkTopicName);
+        final HashSet<String> outputAndThisCopartition = new HashSet<>();
+        outputAndThisCopartition.add(finalRepartitionerName);
+        outputAndThisCopartition.addAll(sourceNodes);
+        builder.internalTopologyBuilder.copartitionSources(outputAndThisCopartition);
 
-        //There is an issue when trying to replace this all with a KTableSource from the repartitioned topic.
-        //Downstream joins of this join fail, due to the partitions not being colocated properly. Not sure how to properly
-        //ensure partitioning when injecting the highwater processor between the Source and the KTableImpl being returned.
-        //The following is a workaround for that issue.
-        intermediateKTableForExport
-                .toStream()
-                .to(outputRepartitionSinkTopicName, Produced.with(thisKeySerde, joinedValueSerde));
 
-        return builder.table(outputRepartitionSinkTopicName,
-                new ConsumedInternal<>(thisKeySerde, joinedValueSerde, new FailOnInvalidTimestamp(), null),
-                materialized);
+        KTableSource outputProcessor = new KTableSource<K, V0>(materialized.storeName());
+        final String outputProcessorName = builder.newProcessorName(SOURCE_NAME);
+        //Hook up the highwatermark output to KTableSource Processor
+        builder.internalTopologyBuilder.addProcessor(outputProcessorName, outputProcessor, highwaterProcessorName);
+        builder.internalTopologyBuilder.connectProcessors(outputProcessorName, highwaterProcessorName);
+
+        final StoreBuilder<KeyValueStore<KL, V0>> storeBuilder
+                = new KeyValueStoreMaterializer<>(materialized).materialize();
+        builder.internalTopologyBuilder.addStateStore(storeBuilder, outputProcessorName);
+        builder.internalTopologyBuilder.connectProcessorAndStateStores(outputProcessorName, storeBuilder.name());
+
+
+        return new KTableImpl<>(builder, outputProcessorName, outputProcessor, thisKeySerde, joinedValueSerde,
+                Collections.singleton(finalRepartitionSourceName), materialized.storeName(), true);
     }
 }

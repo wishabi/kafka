@@ -49,10 +49,10 @@ public class HighwaterResolverProcessorSupplier<KR, V>
                     // using greater-than to capture new highwater events.
                     // using equal as we want to resend in the case of a node failure.
                     offsetHighWaterStore.put(key, value.newValue.getOffset());
-                    context().forward(key, new Change<>(value.newValue.getElem(), null));
+                    context().forward(key, value.newValue.getElem());
                 } else if (value.newValue.getOffset() == -1 ) {
                     //TODO - Is there a better way to forward from the left? Perhaps the topic metadata?
-                    context().forward(key, new Change<>(value.newValue.getElem(), null));
+                    context().forward(key, value.newValue.getElem());
                 }
             }
         };
