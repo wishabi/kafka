@@ -17,6 +17,7 @@
 package org.apache.kafka.streams.state.internals;
 
 import org.apache.kafka.common.metrics.Sensor;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.common.utils.Time;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.errors.ProcessorStateException;
@@ -49,6 +50,7 @@ class InnerMeteredKeyValueStore<K, IK, V, IV> extends WrappedStateStore.Abstract
     private Sensor putAllTime;
     private Sensor allTime;
     private Sensor rangeTime;
+    private Sensor prefixScanTime;
     private Sensor flushTime;
     private StreamsMetricsImpl metrics;
     private ProcessorContext context;
@@ -134,6 +136,12 @@ class InnerMeteredKeyValueStore<K, IK, V, IV> extends WrappedStateStore.Abstract
                                                                     metricScope,
                                                                     name,
                                                                     "range",
+                                                                    Sensor.RecordingLevel.DEBUG,
+                                                                    tagKey, taskName);
+        this.prefixScanTime = this.metrics.addLatencyAndThroughputSensor(taskName,
+                                                                    metricScope,
+                                                                    name,
+                                                                    "prefixScan",
                                                                     Sensor.RecordingLevel.DEBUG,
                                                                     tagKey, taskName);
         this.flushTime = this.metrics.addLatencyAndThroughputSensor(taskName,
@@ -268,6 +276,11 @@ class InnerMeteredKeyValueStore<K, IK, V, IV> extends WrappedStateStore.Abstract
     @Override
     public KeyValueIterator<K, V> all() {
         return new MeteredKeyValueIterator(this.inner.all(), this.allTime);
+    }
+
+    @Override
+    public KeyValueIterator<K, V> prefixScan(final K prefix) {
+        return new MeteredKeyValueIterator(this.inner.prefixScan(typeConverter.innerKey(prefix)), this.rangeTime);
     }
 
     @Override

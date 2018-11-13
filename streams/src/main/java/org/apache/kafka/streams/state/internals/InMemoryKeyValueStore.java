@@ -159,6 +159,14 @@ public class InMemoryKeyValueStore<K, V> implements KeyValueStore<K, V> {
         this.open = false;
     }
 
+    /**
+     * @throws UnsupportedOperationException
+     */
+    @Override
+    public KeyValueIterator<K, V> prefixScan(final K prefix) {
+        throw new UnsupportedOperationException("prefixScan() not supported in " + getClass().getName());
+    }
+
     private static class InMemoryKeyValueIterator<K, V> implements KeyValueIterator<K, V> {
         private final Iterator<Map.Entry<K, V>> iter;
 

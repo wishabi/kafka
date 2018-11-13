@@ -111,6 +111,12 @@ public class CompositeReadOnlyKeyValueStore<K, V> implements ReadOnlyKeyValueSto
         return total;
     }
 
-
+    /**
+     * @throws UnsupportedOperationException
+     */
+    @Override
+    public KeyValueIterator<K, V> prefixScan(final K prefix) {
+        throw new UnsupportedOperationException("prefixScan() not supported in " + getClass().getName());
+    }
 }
 

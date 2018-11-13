@@ -366,6 +366,16 @@ public class RocksDBStore implements KeyValueStore<Bytes, byte[]> {
         return rocksDbIterator;
     }
 
+    @Override
+    public synchronized KeyValueIterator<Bytes, byte[]> prefixScan(final Bytes prefix) {
+        Objects.requireNonNull(prefix, "prefix cannot be null");
+        validateStoreOpen();
+        // query rocksdb
+        final RocksDBStore.RocksDbPrefixIterator rocksDBRangeIterator = new RocksDbPrefixIterator(name, db.newIterator(), prefix.get());
+        openIterators.add(rocksDBRangeIterator);
+        return rocksDBRangeIterator;
+    }
+
     /**
      * Return an approximate count of key-value mappings in this store.
      *
@@ -506,6 +516,34 @@ public class RocksDBStore implements KeyValueStore<Bytes, byte[]> {
                 throw new NoSuchElementException();
             }
             return next.key;
+        }
+    }
+
+    private class RocksDbPrefixIterator extends RocksDbIterator {
+        private byte[] rawPrefix;
+
+        RocksDbPrefixIterator(final String name, final RocksIterator newIterator, final byte[] prefix) {
+            super(name, newIterator);
+            this.rawPrefix = prefix;
+            newIterator.seek(rawPrefix);
+        }
+
+        @Override
+        public synchronized boolean hasNext() {
+            if (!super.hasNext()) {
+                return false;
+            }
+
+            final byte[] rawNextKey = super.peekNextKey().get();
+            for (int i = 0; i < rawPrefix.length; i++) {
+                if (i == rawNextKey.length) {
+                    throw new ArrayIndexOutOfBoundsException("Unexpected RocksDB Key Value. Should have been skipped with seek.");
+                }
+                if (rawNextKey[i] != rawPrefix[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
