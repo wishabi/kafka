@@ -17,6 +17,7 @@
 
 package org.apache.kafka.streams.processor.internals;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.processor.BatchingStateRestoreCallback;
 import org.apache.kafka.streams.processor.StateRestoreCallback;
@@ -32,9 +33,9 @@ public class WrappedBatchingStateRestoreCallback implements BatchingStateRestore
     }
 
     @Override
-    public void restoreAll(final Collection<KeyValue<byte[], byte[]>> records) {
-        for (KeyValue<byte[], byte[]> record : records) {
-            restore(record.key, record.value);
+    public void restoreAll(final Collection<ConsumerRecord<byte[], byte[]>> records) {
+        for (ConsumerRecord<byte[], byte[]> record : records) {
+            restore(record.key(), record.value());
         }
     }
 

@@ -281,7 +281,7 @@ public class StoreChangelogReader implements ChangelogReader {
     private long processNext(final List<ConsumerRecord<byte[], byte[]>> records,
                              final StateRestorer restorer,
                              final Long endOffset) {
-        final List<KeyValue<byte[], byte[]>> restoreRecords = new ArrayList<>();
+        final List<ConsumerRecord<byte[], byte[]>> restoreRecords = new ArrayList<>();
         long nextPosition = -1;
         final int numberRecords = records.size();
         int numberRestored = 0;
@@ -295,7 +295,7 @@ public class StoreChangelogReader implements ChangelogReader {
             lastRestoredOffset = offset;
             numberRestored++;
             if (record.key() != null) {
-                restoreRecords.add(KeyValue.pair(record.key(), record.value()));
+                restoreRecords.add(record);
             }
         }
 

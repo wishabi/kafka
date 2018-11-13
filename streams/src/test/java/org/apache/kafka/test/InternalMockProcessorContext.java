@@ -16,6 +16,7 @@
  */
 package org.apache.kafka.test;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.metrics.Metrics;
@@ -300,9 +301,9 @@ public class InternalMockProcessorContext extends AbstractProcessorContext imple
 
         restoreListener.onRestoreStart(null, storeName, 0L, 0L);
 
-        List<KeyValue<byte[], byte[]>> records = new ArrayList<>();
+        List<ConsumerRecord<byte[], byte[]>> records = new ArrayList<>();
         for (KeyValue<byte[], byte[]> keyValue : changeLog) {
-            records.add(keyValue);
+            records.add(new ConsumerRecord("someTopic",0,0, keyValue.key, keyValue.value));
         }
 
         restoreCallback.restoreAll(records);

@@ -17,6 +17,7 @@
 
 package org.apache.kafka.streams.processor.internals;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.processor.BatchingStateRestoreCallback;
@@ -47,7 +48,7 @@ public class CompositeRestoreListenerTest {
     private final MockStateRestoreListener reportingStoreListener = new MockStateRestoreListener();
     private final byte[] key = "key".getBytes(Charset.forName("UTF-8"));
     private final byte[] value = "value".getBytes(Charset.forName("UTF-8"));
-    private final Collection<KeyValue<byte[], byte[]>> records = Collections.singletonList(KeyValue.pair(key, value));
+    private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("testTopic",0,0,key, value));
     private final String storeName = "test_store";
     private final long startOffset = 0L;
     private final long endOffset = 1L;
@@ -197,10 +198,10 @@ public class CompositeRestoreListenerTest {
 
     private static class MockNoListenBatchingStateRestoreCallback implements BatchingStateRestoreCallback {
 
-        Collection<KeyValue<byte[], byte[]>> restoredRecords;
+        Collection<ConsumerRecord<byte[], byte[]>> restoredRecords;
 
         @Override
-        public void restoreAll(final Collection<KeyValue<byte[], byte[]>> records) {
+        public void restoreAll(final Collection<ConsumerRecord<byte[], byte[]>> records) {
             restoredRecords = records;
         }
 

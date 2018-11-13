@@ -177,7 +177,7 @@ public class ProcessorStateManager extends AbstractStateManager {
                                                              final List<ConsumerRecord<byte[], byte[]>> records) {
         final long limit = offsetLimit(storePartition);
         List<ConsumerRecord<byte[], byte[]>> remainingRecords = null;
-        final List<KeyValue<byte[], byte[]>> restoreRecords = new ArrayList<>();
+        final List<ConsumerRecord<byte[], byte[]>> restoreRecords = new ArrayList<>();
 
         // restore states from changelog records
         final BatchingStateRestoreCallback restoreCallback = getBatchingRestoreCallback(restoreCallbacks.get(storePartition.topic()));
@@ -186,7 +186,7 @@ public class ProcessorStateManager extends AbstractStateManager {
         int count = 0;
         for (final ConsumerRecord<byte[], byte[]> record : records) {
             if (record.offset() < limit) {
-                restoreRecords.add(KeyValue.pair(record.key(), record.value()));
+                restoreRecords.add(record);
                 lastOffset = record.offset();
             } else {
                 if (remainingRecords == null) {

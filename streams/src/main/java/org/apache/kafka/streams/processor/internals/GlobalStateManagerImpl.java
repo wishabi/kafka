@@ -275,10 +275,10 @@ public class GlobalStateManagerImpl extends AbstractStateManager implements Glob
             while (offset < highWatermark) {
                 try {
                     final ConsumerRecords<byte[], byte[]> records = globalConsumer.poll(pollTime);
-                    final List<KeyValue<byte[], byte[]>> restoreRecords = new ArrayList<>();
+                    final List<ConsumerRecord<byte[], byte[]>> restoreRecords = new ArrayList<>();
                     for (final ConsumerRecord<byte[], byte[]> record : records) {
                         if (record.key() != null) {
-                            restoreRecords.add(KeyValue.pair(record.key(), record.value()));
+                            restoreRecords.add(record);
                         }
                     }
                     offset = globalConsumer.position(topicPartition);

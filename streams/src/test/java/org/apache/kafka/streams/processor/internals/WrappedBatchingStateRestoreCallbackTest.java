@@ -18,6 +18,7 @@
 package org.apache.kafka.streams.processor.internals;
 
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.processor.BatchingStateRestoreCallback;
 import org.apache.kafka.test.MockRestoreCallback;
@@ -35,7 +36,7 @@ public class WrappedBatchingStateRestoreCallbackTest {
     private final MockRestoreCallback mockRestoreCallback = new MockRestoreCallback();
     private final byte[] key = "key".getBytes(Charset.forName("UTF-8"));
     private final byte[] value = "value".getBytes(Charset.forName("UTF-8"));
-    private final Collection<KeyValue<byte[], byte[]>> records = Collections.singletonList(KeyValue.pair(key, value));
+    private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("asdf",0,0,key,value));
     private final BatchingStateRestoreCallback wrappedBatchingStateRestoreCallback = new WrappedBatchingStateRestoreCallback(mockRestoreCallback);
 
     @Test

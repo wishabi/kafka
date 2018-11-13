@@ -18,6 +18,7 @@
 package org.apache.kafka.streams.processor.internals;
 
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.errors.StreamsException;
@@ -85,7 +86,7 @@ public class CompositeRestoreListener implements BatchingStateRestoreCallback, S
     }
 
     @Override
-    public void restoreAll(final Collection<KeyValue<byte[], byte[]>> records) {
+    public void restoreAll(final Collection<ConsumerRecord<byte[], byte[]>> records) {
         internalBatchingRestoreCallback.restoreAll(records);
     }
 
@@ -114,7 +115,7 @@ public class CompositeRestoreListener implements BatchingStateRestoreCallback, S
     private static final class NoOpStateRestoreListener extends AbstractNotifyingBatchingRestoreCallback {
 
         @Override
-        public void restoreAll(final Collection<KeyValue<byte[], byte[]>> records) {
+        public void restoreAll(final Collection<ConsumerRecord<byte[], byte[]>> records) {
 
         }
     }
