@@ -46,7 +46,10 @@ public class StateRestorerTest {
 
     @Test
     public void shouldCallRestoreOnRestoreCallback() {
-        restorer.restore(Collections.singletonList(new ConsumerRecord<>("adsf", 0,0, new byte[0], new byte[0])));
+        //Bellemare - This is an expansion of KeyValue to ConsumerRecord. The topic name, partition and offset are irrelevant.
+        //This modification does not need to be made in Kafka 2.1, so as such this will remain as a workaround for the RocksDBTTL
+        //changelog restore modifications.
+        restorer.restore(Collections.singletonList(new ConsumerRecord<>("someTopic", 0,0, new byte[0], new byte[0])));
         assertThat(callback.restored.size(), equalTo(1));
     }
 

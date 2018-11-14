@@ -303,6 +303,9 @@ public class InternalMockProcessorContext extends AbstractProcessorContext imple
 
         List<ConsumerRecord<byte[], byte[]>> records = new ArrayList<>();
         for (KeyValue<byte[], byte[]> keyValue : changeLog) {
+            //Bellemare - This is an expansion of KeyValue to ConsumerRecord. The topic name, partition and offset are irrelevant.
+            //This modification does not need to be made in Kafka 2.1, so as such this will remain as a workaround for the RocksDBTTL
+            //changelog restore modifications.
             records.add(new ConsumerRecord("someTopic",0,0, keyValue.key, keyValue.value));
         }
 

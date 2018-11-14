@@ -36,7 +36,10 @@ public class WrappedBatchingStateRestoreCallbackTest {
     private final MockRestoreCallback mockRestoreCallback = new MockRestoreCallback();
     private final byte[] key = "key".getBytes(Charset.forName("UTF-8"));
     private final byte[] value = "value".getBytes(Charset.forName("UTF-8"));
-    private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("asdf",0,0,key,value));
+    //Bellemare - This is an expansion of KeyValue to ConsumerRecord. The topic name, partition and offset are irrelevant.
+    //This modification does not need to be made in Kafka 2.1, so as such this will remain as a workaround for the RocksDBTTL
+    //changelog restore modifications.
+    private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("someTopic",0,0,key,value));
     private final BatchingStateRestoreCallback wrappedBatchingStateRestoreCallback = new WrappedBatchingStateRestoreCallback(mockRestoreCallback);
 
     @Test

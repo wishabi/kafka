@@ -48,6 +48,9 @@ public class CompositeRestoreListenerTest {
     private final MockStateRestoreListener reportingStoreListener = new MockStateRestoreListener();
     private final byte[] key = "key".getBytes(Charset.forName("UTF-8"));
     private final byte[] value = "value".getBytes(Charset.forName("UTF-8"));
+    //Bellemare - This is an expansion of KeyValue to ConsumerRecord. The topic name, partition and offset are irrelevant.
+    //This modification does not need to be made in Kafka 2.1, so as such this will remain as a workaround for the RocksDBTTL
+    //changelog restore modifications.
     private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("testTopic",0,0,key, value));
     private final String storeName = "test_store";
     private final long startOffset = 0L;
