@@ -48,7 +48,7 @@ import java.util.List;
 import java.util.Properties;
 
 @Category({IntegrationTest.class})
-public class AdamTest {
+public class RocksDBTTLStoreChangeLogRebuildTest {
     private final static int NUM_BROKERS = 1;
 
     @ClassRule
@@ -111,12 +111,15 @@ public class AdamTest {
         topology.start();
 
         try {
-            System.out.println("Sleeping for 20 seconds");
+            System.out.println("Started Topology, sleeping for 20 seconds");
             Thread.sleep(20000);
             ReadOnlyKeyValueStore<String, Long> keystore = topology.store(tableName, QueryableStoreTypes.keyValueStore());
             System.out.println("a = " + keystore.get("a"));
+            assert(keystore.get("a") == 1);
             System.out.println("b = " + keystore.get("b"));
+            assert(keystore.get("b") == 1);
             System.out.println("c = " + keystore.get("c"));
+            assert(keystore.get("c") == 2);
             Thread.sleep(1000);
             topology.close();
             System.out.println("Sleeping for 55 seconds");
@@ -134,11 +137,12 @@ public class AdamTest {
             System.out.println("Sleeping for 10 seconds");
             ReadOnlyKeyValueStore<String, Long> keystore2 = topology2.store(tableName, QueryableStoreTypes.keyValueStore());
             System.out.println("a = " + keystore2.get("a"));
+            assert(keystore2.get("a") == null);
             System.out.println("b = " + keystore2.get("b"));
+            assert(keystore2.get("b") == null);
             System.out.println("c = " + keystore2.get("c"));
-
+            assert(keystore2.get("c") == null);
             Thread.sleep(2000);
-            System.out.println("Done.");
         } catch (Exception e) {
             System.out.println("HEXCEPTION - Ah damnit.");
             System.out.println(e.toString());
