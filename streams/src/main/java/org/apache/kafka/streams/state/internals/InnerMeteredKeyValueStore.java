@@ -280,7 +280,7 @@ class InnerMeteredKeyValueStore<K, IK, V, IV> extends WrappedStateStore.Abstract
 
     @Override
     public KeyValueIterator<K, V> prefixScan(final K prefix) {
-        return new MeteredKeyValueIterator(this.inner.prefixScan(typeConverter.innerKey(prefix)), this.rangeTime);
+        return new MeteredKeyValueIterator(this.inner.prefixScan(typeConverter.innerKey(prefix)), this.prefixScanTime);
     }
 
     @Override

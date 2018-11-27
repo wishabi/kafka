@@ -50,21 +50,6 @@ class RatTask extends DefaultTask {
     }
   }
 
-  def printUnknownFiles() {
-    def ratXml = new XmlParser().parse(xmlReport)
-    def unknownLicenses = 0
-    ratXml.resource.each { resource ->
-      if (resource.'license-approval'.@name[0] == "false") {
-        println('Unknown license: ' + resource.@name)
-        unknownLicenses++
-      }
-    }
-    if (unknownLicenses > 0) {
-      throw new GradleException("Found " + unknownLicenses + " files with " +
-                                "unknown licenses.")
-    }
-  }
-
   def generateHtmlReport() {
     def antBuilder = services.get(IsolatedAntBuilder)
     def ratClasspath = project.configurations.rat
@@ -88,7 +73,6 @@ class RatTask extends DefaultTask {
     try {
       System.setProperty("file.encoding", "UTF-8") //affects the output of the ant rat task
       generateXmlReport(reportDir)
-      printUnknownFiles()
       generateHtmlReport()
     } finally {
       System.setProperty("file.encoding", origEncoding)

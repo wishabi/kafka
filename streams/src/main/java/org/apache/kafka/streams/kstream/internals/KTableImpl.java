@@ -46,6 +46,7 @@ import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.internals.RocksDbKeyValueBytesStoreSupplier;
+import org.apache.kafka.streams.state.internals.RocksDbTTLKeyValueBytesStoreSupplier;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -626,7 +627,8 @@ public class KTableImpl<K, S, V> extends AbstractStream<K> implements KTable<K, 
         final HighwaterResolverProcessorSupplier<K, VR> highwaterProcessor = new HighwaterResolverProcessorSupplier<>(finalRepartitionTableName);
         final String highwaterProcessorName = builder.newProcessorName(KTableImpl.SOURCE_NAME);
 
-        final KeyValueBytesStoreSupplier highwaterRdbs = new RocksDbKeyValueBytesStoreSupplier(finalRepartitionTableName);
+        ///Highwater errors need to be resolved in 7 days.
+        final KeyValueBytesStoreSupplier highwaterRdbs = new RocksDbTTLKeyValueBytesStoreSupplier(finalRepartitionTableName, 60*60*24*7);
         final Materialized highwaterMat = Materialized.<K, Long, KeyValueStore<Bytes, byte[]>>as(highwaterRdbs.get().name())
                 .withKeySerde(thisSerialized.keySerde())
                 .withValueSerde(Serdes.Long());

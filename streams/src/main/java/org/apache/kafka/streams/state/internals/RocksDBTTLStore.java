@@ -80,7 +80,7 @@ public class RocksDBTTLStore implements KeyValueStore<Bytes, byte[]> {
     private final String name;
     private final String parentDir;
     private final int timeToLive;
-    private final long restoreTimestamp = System.currentTimeMillis();
+    private final long currentTimeReference;
     private final Set<KeyValueIterator> openIterators = Collections.synchronizedSet(new HashSet<KeyValueIterator>());
 
     File dbDir;
@@ -98,14 +98,15 @@ public class RocksDBTTLStore implements KeyValueStore<Bytes, byte[]> {
 
     protected volatile boolean open = false;
 
-    RocksDBTTLStore(final String name, final int timeToLive) {
-        this(name, timeToLive, DB_FILE_DIR);
+    RocksDBTTLStore(final String name, final int timeToLiveSeconds) {
+        this(name, timeToLiveSeconds, System.currentTimeMillis(), DB_FILE_DIR);
     }
 
-    RocksDBTTLStore(final String name, final int timeToLive, final String parentDir) {
+    RocksDBTTLStore(final String name, final int timeToLiveSeconds, final long currentTimeReference, final  String parentDir) {
         this.name = name;
         this.parentDir = parentDir;
-        this.timeToLive = timeToLive;
+        this.timeToLive = timeToLiveSeconds;
+        this.currentTimeReference = currentTimeReference;
     }
 
     @SuppressWarnings("unchecked")
@@ -269,9 +270,7 @@ public class RocksDBTTLStore implements KeyValueStore<Bytes, byte[]> {
                 if (record.value() == null) {
                     batch.remove(record.key());
                 } else {
-                    System.out.println("RESTORE: record Timestamp = " + record.timestamp() + ", ttl=" + timeToLive*1000L + ", restoreTimeStamp =" + restoreTimestamp);
-                    if (record.timestamp() + timeToLive*1000L > restoreTimestamp) {
-                        System.out.println("Restoring!");
+                    if (record.timestamp() + timeToLive*1000L > currentTimeReference) {
                         batch.put(record.key(), record.value());
                     }
                 }

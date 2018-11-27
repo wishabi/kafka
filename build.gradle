@@ -37,7 +37,7 @@ apply plugin: "com.diffplug.gradle.spotless"
 spotless {
   scala {
     target 'streams/**/*.scala'
-    scalafmt('1.5.1').configFile('checkstyle/.scalafmt.conf')
+    //scalafmt('1.5.1').configFile('checkstyle/.scalafmt.conf')
   }
 }
 
@@ -144,7 +144,7 @@ subprojects {
   }
   apply plugin: 'maven'
   apply plugin: 'signing'
-  apply plugin: 'checkstyle'
+  //apply plugin: 'checkstyle'
 
   if (!JavaVersion.current().isJava9Compatible())
     apply plugin: 'findbugs'
@@ -357,12 +357,12 @@ subprojects {
     }
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    configProperties = [importControlFile: "$rootDir/checkstyle/import-control.xml"]
-    toolVersion = '8.10'
-  }
-  test.dependsOn('checkstyleMain', 'checkstyleTest')
+  //checkstyle {
+  //  configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+  //  configProperties = [importControlFile: "$rootDir/checkstyle/import-control.xml"]
+  //  toolVersion = '8.10'
+  //}
+  //test.dependsOn('checkstyleMain', 'checkstyleTest')
 
   if (!JavaVersion.current().isJava9Compatible()) {
     findbugs {
@@ -770,9 +770,9 @@ project(':core') {
 
   systemTestLibs.dependsOn('jar', 'testJar', 'copyDependantTestLibs')
 
-  checkstyle {
-    configProperties = [importControlFile: "$rootDir/checkstyle/import-control-core.xml"]
-  }
+  //checkstyle {
+  //  configProperties = [importControlFile: "$rootDir/checkstyle/import-control-core.xml"]
+  //}
 }
 
 project(':examples') {
@@ -786,9 +786,9 @@ project(':examples') {
     enabled = false
   }
 
-  checkstyle {
-    configProperties = [importControlFile: "$rootDir/checkstyle/import-control-core.xml"]
-  }
+  //checkstyle {
+  //  configProperties = [importControlFile: "$rootDir/checkstyle/import-control-core.xml"]
+  //}
 }
 
 project(':clients') {

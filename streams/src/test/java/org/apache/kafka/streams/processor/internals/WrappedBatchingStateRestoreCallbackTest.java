@@ -40,12 +40,13 @@ public class WrappedBatchingStateRestoreCallbackTest {
     //This modification does not need to be made in Kafka 2.1, so as such this will remain as a workaround for the RocksDBTTL
     //changelog restore modifications.
     private final Collection<ConsumerRecord<byte[], byte[]>> records = Collections.singletonList(new ConsumerRecord("someTopic",0,0,key,value));
+    private final Collection<KeyValue<byte[], byte[]>> expectedRecord = Collections.singletonList(new KeyValue(key, value));
     private final BatchingStateRestoreCallback wrappedBatchingStateRestoreCallback = new WrappedBatchingStateRestoreCallback(mockRestoreCallback);
 
     @Test
     public void shouldRestoreSinglePutsFromArray() {
         wrappedBatchingStateRestoreCallback.restoreAll(records);
-        assertThat(mockRestoreCallback.restored, is(records));
+        assertThat(mockRestoreCallback.restored, is(expectedRecord));
         KeyValue<byte[], byte[]> record = mockRestoreCallback.restored.get(0);
         assertThat(record.key, is(key));
         assertThat(record.value, is(value));

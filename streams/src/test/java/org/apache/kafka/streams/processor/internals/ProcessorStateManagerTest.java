@@ -121,7 +121,10 @@ public class ProcessorStateManagerTest {
             stateMgr.register(persistentStore, batchingRestoreCallback);
             stateMgr.updateStandbyStates(persistentStorePartition, Collections.singletonList(consumerRecord));
             assertThat(batchingRestoreCallback.getRestoredRecords().size(), is(1));
-            assertTrue(batchingRestoreCallback.getRestoredRecords().contains(expectedKeyValue));
+            //To accommodate the changes made to the batchingRestoreCallback for the RocksDBTTL changelog restore implementation.
+            final ConsumerRecord<byte[], byte[]> cr = batchingRestoreCallback.getRestoredRecords().iterator().next();
+            final KeyValue<byte[], byte[]> actual = KeyValue.pair(cr.key(), cr.value());
+            assertTrue(actual.equals(expectedKeyValue));
         } finally {
             stateMgr.close(Collections.emptyMap());
         }

@@ -25,9 +25,9 @@ public class RocksDbTTLKeyValueBytesStoreSupplier implements KeyValueBytesStoreS
     private final String name;
     private final int timeToLive;
 
-    public RocksDbTTLKeyValueBytesStoreSupplier(final String name, final int timeToLive) {
+    public RocksDbTTLKeyValueBytesStoreSupplier(final String name, final int timeToLiveSeconds) {
         this.name = name;
-        this.timeToLive = timeToLive;
+        this.timeToLive = timeToLiveSeconds;
     }
 
     @Override
