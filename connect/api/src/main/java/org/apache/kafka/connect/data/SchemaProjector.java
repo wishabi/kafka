@@ -130,6 +130,7 @@ public class SchemaProjector {
         } else if (!Objects.equals(source.name(), target.name())) {
             throw new SchemaProjectorException("Schema name mismatch. source name: " + source.name() + " and target name: " + target.name());
         } else if (!Objects.equals(source.parameters(), target.parameters()) &&
+            source.parameters() != null && // make sure it's not null to avoid NullPointerException
             !source.parameters().containsKey("io.confluent.connect.avro.Enum") &&
             !source.parameters().containsKey("connect.record.doc")
         ) {

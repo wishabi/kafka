@@ -495,6 +495,12 @@ public class SchemaProjectorTest {
 
         Object projectedObj = SchemaProjector.project(sourceWithRecordDocParamters, "ProjectedObj", targetWithRecordDocParameters);
         assertEquals("ProjectedObj", projectedObj);
+
+        // Test Parameter is null - By Flipp
+        Schema sourceWithNullParamters = SchemaBuilder.string().build();
+
+        Object projectedObjWithNullParamters = SchemaProjector.project(sourceWithNullParamters, "ProjectedObjWithNullParamters", targetWithRecordDocParameters);
+        assertEquals("ProjectedObjWithNullParamters", projectedObjWithNullParamters);
     }
 
     @Test
