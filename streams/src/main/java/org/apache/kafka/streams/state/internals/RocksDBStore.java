@@ -513,7 +513,10 @@ public class RocksDBStore implements KeyValueStore<Bytes, byte[]> {
 
         @Override
         public Bytes peekNextKey() {
-            if (!hasNext()) {
+            if (!open) {
+                throw new InvalidStateStoreException(String.format("RocksDB store %s has closed", storeName));
+            }
+            if (!super.hasNext()) {
                 throw new NoSuchElementException();
             }
             return next.key;

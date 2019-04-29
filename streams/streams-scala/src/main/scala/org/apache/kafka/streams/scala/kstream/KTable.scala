@@ -252,6 +252,27 @@ class KTable[K, V](val inner: KTableJ[K, V]) {
     inner.join[VO, VR](other.inner, joiner.asValueJoiner, materialized)
 
   /**
+    * Join records of this [[KTable]] with another [[KTable]]'s records on a foreign key, using a non-windowed inner equi join.
+    *
+    * @param other  the other [[KTable]] to be joined with this [[KTable]]
+    * @param keyExtractor extract the key for the other [[KTable]] to be joined with this [[KTable]]
+    * @param joiner a function that computes the join result for a pair of matching records
+    * @param materialized  a `Materialized` that describes how the `StateStore` for the resulting [[KTable]]
+    *                      should be materialized.
+    * @return a [[KTable]] that contains join-records for each key and values computed by the given joiner,
+    * one for each matched record-pair with the same key
+    * @see `org.apache.kafka.streams.kstream.KTable#join`
+    */
+  def joinOnForeignKey[VR, KO, VO](other: KTable[KO, VO], keyExtractor: ValueMapper[V, KO],
+                                   materialized: Materialized[K, VR, ByteArrayKeyValueStore],
+                                   thisSerialized: Serialized[K, V],
+                                   otherSerialized: Serialized[KO, VO],
+                                   joinedSerialized: Serialized[K, VR])(
+                                    joiner: (V, VO) => VR
+                                  ): KTable[K, VR] =
+    inner.joinOnForeignKey[VR, KO, VO](other.inner, keyExtractor, joiner.asValueJoiner, materialized, thisSerialized, otherSerialized, joinedSerialized)
+
+  /**
    * Join records of this [[KTable]] with another [[KTable]]'s records using non-windowed left equi join.
    *
    * @param other  the other [[KTable]] to be joined with this [[KTable]]
